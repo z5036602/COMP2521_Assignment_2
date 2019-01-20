@@ -178,7 +178,7 @@ location_t *gv_get_connections (
     
 	if (  player != PLAYER_DRACULA){
 		if((round + player) %4 ==0){
-			edges = check_for_connections_0_round(my_map, from, road, rail, sea,n_locations);
+			edges = check_for_connections_0_round(my_map, from, road, sea,n_locations);
 		}
 		if((round + player) %4 ==1){
 			edges = check_for_connections_1_round(my_map, from, road, rail, sea,n_locations);
@@ -191,10 +191,10 @@ location_t *gv_get_connections (
 		}
 	}else{		
 		if(valid_location_p(from)==true){
-			edges = check_for_connections_dracula(my_map, from, road, rail, sea,n_locations);
+			edges = check_for_connections_dracula(my_map, from, road, sea,n_locations);
 		}else{
 
-			edges = check_for_connections_dracula(my_map, gv->Dracula_real_curr_location, road, rail, sea,n_locations);
+			edges = check_for_connections_dracula(my_map, gv->Dracula_real_curr_location, road, sea,n_locations);
 		}
 	}
 	map_drop(my_map);

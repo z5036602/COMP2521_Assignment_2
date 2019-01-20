@@ -164,7 +164,7 @@ static bool adjlist_contains(map_adj *list, location_t v, transport_t type)
 			return true;
 	return false;
 }
-location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool rail, bool sea, size_t *n_locations)
+location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool sea, size_t *n_locations)
 {
 	assert(g != NULL);
 	map_adj *curr = g->connections[src];
@@ -172,7 +172,7 @@ location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool
 	adj_locations_tmp[0] = src;
 	bool visted[NUM_MAP_LOCATIONS] = {false};
 	visted[src] = true;
-	int counter = 1;
+	size_t counter = 1;
 
 	while (curr != NULL)
 	{
@@ -192,7 +192,7 @@ location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool
 		curr = curr->next;
 	}
 	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
-	int i = 0;
+	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];
@@ -209,7 +209,7 @@ location_t *check_for_connections_1_round(Map g, location_t src, bool road, bool
 	adj_locations_tmp[0] = src;
 	bool visted[NUM_MAP_LOCATIONS] = {false};
 	visted[src] = true;
-	int counter = 1;
+	size_t counter = 1;
 
 	while (curr != NULL)
 	{
@@ -235,7 +235,7 @@ location_t *check_for_connections_1_round(Map g, location_t src, bool road, bool
 		curr = curr->next;
 	}
 	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
-	int i = 0;
+	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];
@@ -252,7 +252,7 @@ location_t *check_for_connections_2_round(Map g, location_t src, bool road, bool
 	adj_locations_tmp[0] = src;
 	bool visted[NUM_MAP_LOCATIONS] = {false};
 	visted[src] = true;
-	int counter = 1;
+	size_t counter = 1;
 
 	while (curr != NULL)
 	{
@@ -295,7 +295,7 @@ location_t *check_for_connections_2_round(Map g, location_t src, bool road, bool
 		curr = curr->next;
 	}
 	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
-	int i = 0;
+	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];
@@ -312,7 +312,7 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 	adj_locations_tmp[0] = src;
 	bool visted[NUM_MAP_LOCATIONS] = {false};
 	visted[src] = true;
-	int counter = 1;
+	size_t counter = 1;
 	while (curr != NULL)
 	{
 		//if (curr->v == end ){
@@ -368,7 +368,7 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 		curr = curr->next;
 	}
 	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
-	int i = 0;
+	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];
@@ -377,7 +377,7 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 	*n_locations = counter;
 	return adj_locations;
 }
-location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool rail, bool sea, size_t *n_locations)
+location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool sea, size_t *n_locations)
 {
 	assert(g != NULL);
 	//assert(1==2);
@@ -387,7 +387,7 @@ location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool
 	bool visted[NUM_MAP_LOCATIONS] = {false};
 	visted[src] = true;
 	int flag = 0;
-	int counter = 1;
+	size_t counter = 1;
 
 	while (curr != NULL)
 	{
@@ -420,7 +420,7 @@ location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool
 		counter++;
 	}
 	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
-	int i = 0;
+	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];

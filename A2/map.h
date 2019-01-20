@@ -45,9 +45,9 @@ size_t map_nv (Map);
 /** Get the number of edges. */
 size_t map_ne (Map, transport_t);
 /** Get the adj_matrix of edges. */
-location_t* check_for_connections_0_round(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
+location_t* check_for_connections_0_round(Map g, location_t src, bool road, bool sea,size_t *n_locations);
 location_t* check_for_connections_1_round(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
 location_t* check_for_connections_2_round(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
 location_t* check_for_connections_3_round(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
-location_t* check_for_connections_dracula(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
+location_t* check_for_connections_dracula(Map g, location_t src, bool road, bool sea,size_t *n_locations);
 #endif // !defined(FOD__MAP_H_)

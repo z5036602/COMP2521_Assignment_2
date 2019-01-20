@@ -56,7 +56,7 @@ typedef struct dracula_view
 	player_message *messages;
 	DLList player_path[NUM_PLAYERS];
 	DLList dracula_real_path;
-	int num_of_turns;
+	size_t num_of_turns;
 	int traps[MAX_TRAPS_NUMBER];
 	int is_vampire_alive;
 	location_t vampire_location;
@@ -66,13 +66,13 @@ typedef struct dracula_view
 static void trap_update(dracula_view *dv);
 static location_t abbrevToLocation(char *abbrev);
 static void hunter_update_location(dracula_view *dv, enum player player, location_t new_location);
-static void apply_hunter_rule(dracula_view *dv, enum player player, char *token, location_t this_location);
+static void apply_hunter_rule(dracula_view *dv, char *token, location_t this_location);
 static void dracula_update_location(dracula_view *dv, location_t new_location);
 static void apply_dracula_rule(dracula_view *dv, char *token, location_t this_location);
-static DLList newDLList();
+static DLList newDLList(void);
 static void freeDLList(DLList L);
 static void DLListInsert(DLList L, location_t location);
-static void DLListInsert_nodup(DLList L, location_t location);
+//static void DLListInsert_nodup(DLList L, location_t location);
 static void original_string_to_real(char *string);
 static location_t *location_dracula_can_move(
 	dracula_view *dv, size_t *n_locations,
@@ -124,7 +124,7 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 		else
 		{
 			hunter_update_location(new, this_player, this_location);
-			apply_hunter_rule(new, this_player, token, this_location);
+			apply_hunter_rule(new, token, this_location);
 		}
 		new->num_of_turns++;
 	}
@@ -306,7 +306,7 @@ static void hunter_update_location(dracula_view *dv, enum player player, locatio
 	DLListInsert(dv->player_path[player], new_location);
 }
 
-static void apply_hunter_rule(dracula_view *dv, enum player player, char *token, location_t this_location)
+static void apply_hunter_rule(dracula_view *dv, char *token, location_t this_location)
 {
 	for (size_t i = 3; i < 7; i++)
 	{
@@ -450,7 +450,7 @@ static void DLListInsert(DLList L, location_t location)
 	L->nitems++;
 }
 
-static void DLListInsert_nodup(DLList L, location_t location)
+/*static void DLListInsert_nodup(DLList L, location_t location)
 {
 	assert(L != NULL);
 	for (DLListNode *curr = L->first; curr != NULL; curr = curr->next)
@@ -459,10 +459,10 @@ static void DLListInsert_nodup(DLList L, location_t location)
 			return;
 	}
 	DLListInsert(L, location);
-}
+}*/
 static void original_string_to_real(char *string)
 {
-	int i = 73;
+	size_t i = 73;
 	while (i < strlen(string))
 	{
 		if (string[i] == 'H' && string[i + 1] == 'I')
@@ -542,12 +542,12 @@ static location_t *location_dracula_can_move(
 		 - the position in the trail of the location he has doubled back to
 		*/
 
-	for (map_adj *curr = dv->world_map->connections[from]; curr != NULL; curr = curr->next)
+	for (map_adj *curr_1 = dv->world_map->connections[from]; curr_1 != NULL; curr_1 = curr_1->next)
 	{
-		if ((road && curr->type == ROAD && visited[curr->v] == -1) || (sea && curr->type == BOAT && visited[curr->v] == -1))
+		if ((road && curr_1->type == ROAD && visited[curr_1->v] == -1) || (sea && curr_1->type == BOAT && visited[curr_1->v] == -1))
 		{
-			visited[curr->v] = 1;
-			DLListInsert(connection_list, curr->v);
+			visited[curr_1->v] = 1;
+			DLListInsert(connection_list, curr_1->v);
 		}
 	}
 
