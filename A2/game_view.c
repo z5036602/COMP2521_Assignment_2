@@ -5,7 +5,7 @@
 // 2014-07-01	v1.0	Team Dracula <cs2521@cse.unsw.edu.au>
 // 2017-12-01	v1.1	Team Dracula <cs2521@cse.unsw.edu.au>
 // 2018-12-31	v2.0	Team Dracula <cs2521@cse.unsw.edu.au>
-
+//ZhengyueLIU
 #include <assert.h>
 #include <err.h>
 #include <stdbool.h>
@@ -19,14 +19,15 @@
 #include "map.h"
 
 typedef struct game_view {
-	round_t curr_turn;
-	int curr_score;
-	int player_health[NUM_PLAYERS];
-	int player_moves[NUM_PLAYERS][TRAIL_SIZE];
-	int player_curr_location[NUM_PLAYERS];
-	int Dracula_real_curr_location;
-	char *real_past_plays;
-	bool is_vampire_alive;
+	round_t curr_turn;										//record current turn										
+	int curr_score;											//record current score
+	int player_health[NUM_PLAYERS];							//record the health for each player
+	int player_moves[NUM_PLAYERS][TRAIL_SIZE];				//record the trail for each player
+	int player_curr_location[NUM_PLAYERS];					//record the current location for each player
+	int Dracula_real_curr_location;							//record the real current location of dracula
+	char *real_past_plays;									//record the real past playstring(a string which turns TBHI,CD to their real loaction
+	bool is_vampire_alive;									//to check whether vampire still alive, if he die the game ended
+	player_message  *messages;								//to receive the player message
 } game_view;
 
 
@@ -41,7 +42,7 @@ static void revive_the_hunter_after_death(game_view *gv,int id);
 
 game_view *gv_new (char *past_plays, player_message messages[])
 {
-	game_view *new = malloc (sizeof *new);
+	game_view *new = malloc (sizeof *new);										//initialisation
 	if (new == NULL) err (EX_OSERR, "couldn't allocate GameView");
     new->curr_turn = 0;
 	new->curr_score = GAME_START_SCORE;
@@ -52,6 +53,7 @@ game_view *gv_new (char *past_plays, player_message messages[])
 	new->player_health[PLAYER_DRACULA] = GAME_START_BLOOD_POINTS;
 	new->real_past_plays = NULL;
 	new->is_vampire_alive = false;		
+	new->messages = messages;
 	for (int n = 0;n < NUM_PLAYERS;n++) {
 	  	for (int m = 0;m < TRAIL_SIZE;m++) {
 	  		new->player_moves[n][m] = UNKNOWN_LOCATION;
@@ -59,18 +61,18 @@ game_view *gv_new (char *past_plays, player_message messages[])
 		new->player_curr_location[n] = UNKNOWN_LOCATION;
 	
 	}
-	if(strlen(past_plays) == 0) return new;
+	if(strlen(past_plays) == 0) return new;											//if the past string is empty return directly
 
-	new->curr_turn = (strlen(past_plays)+1)/8;
-	new->curr_score = GAME_START_SCORE;
-	new->is_vampire_alive = false;
+	new->curr_turn = (strlen(past_plays)+1)/8;										//characters number+1 divide by number of characters 
+	new->curr_score = GAME_START_SCORE;												//in  each turn	
+	new->is_vampire_alive = false;												
 	new->real_past_plays = strdup(past_plays);
-	original_string_to_real(new->real_past_plays);
+	original_string_to_real(new->real_past_plays);									//turns TB,HI,CD to their real loaction
 	enum player real_player = 0;
-	for(size_t k=0; k < strlen(new->real_past_plays);k+=8){
-		switch(past_plays[k]) {
-  		case 'G' :
-		real_player = PLAYER_LORD_GODALMING; break;
+	for(size_t k=0; k < strlen(new->real_past_plays);k+=8){								//iterate through the string
+		switch(past_plays[k]) {															//if the initial character is G,or S,or H,or M
+  		case 'G' :																		//Player are GOLDALMING,SEWARD,HELSING,HARKER
+		real_player = PLAYER_LORD_GODALMING; break;						
  		case 'S' :
 		real_player = PLAYER_DR_SEWARD; break;
 		case 'H' :
@@ -80,7 +82,7 @@ game_view *gv_new (char *past_plays, player_message messages[])
    		default :
 		real_player = PLAYER_DRACULA;break;
    		}
-		if (real_player!=PLAYER_DRACULA){
+		if (real_player!=PLAYER_DRACULA){												//if the player is not dracula 
 			record_hunter_location (new,past_plays,k,real_player);		    
 	    	damage_counting_at_hunter_turn(new,past_plays,k,real_player);	        
 			if (new->player_health[real_player] <= 0) {
@@ -88,7 +90,7 @@ game_view *gv_new (char *past_plays, player_message messages[])
 			} else {
 				new->player_curr_location[real_player] = new->player_moves[real_player][0];
 			}        
-		}else{
+		}else{																			//if the player is dracula we do his special move
 
 			if(past_plays[k + 5] == 'V') {
 				new->curr_score = new->curr_score - SCORE_LOSS_VAMPIRE_MATURES;
@@ -108,7 +110,7 @@ game_view *gv_new (char *past_plays, player_message messages[])
 
 	}
 
-		return new;
+	return new;
 	
 
 }
@@ -116,6 +118,7 @@ game_view *gv_new (char *past_plays, player_message messages[])
 
 void gv_drop (game_view *gv)
 {
+	//free (gv->messages);
 	free (gv->real_past_plays);
 	free (gv);
 }
@@ -204,7 +207,7 @@ location_t *gv_get_connections (
 
 
 
-static void original_string_to_real (char* string){
+static void original_string_to_real (char* string){            //turns TB,HI,CD to their real loaction
 	unsigned int i=73;
 	while(i < strlen(string)) {
 		if (string[i] == 'H' && string[i+1]=='I'){

@@ -19,7 +19,7 @@
 #include "game.h"
 #include "game_view.h"
 #include "map.h"
-
+//tingting
 //#include "DDList.h"
 // #include "map.h" ... if you decide to use the Map ADT
 
@@ -50,16 +50,16 @@ enum
 typedef struct dracula_view
 {
 	
-	GameView gv;
-	Map world_map;
-	char *past_plays;
+	GameView gv;											//parent gv ADT
+	Map world_map;											//graph ADT
+	char *past_plays;									
 	player_message *messages;
-	DLList player_path[NUM_PLAYERS];
-	DLList dracula_real_path;
-	size_t num_of_turns;
-	int traps[MAX_TRAPS_NUMBER];
-	int is_vampire_alive;
-	location_t vampire_location;
+	DLList player_path[NUM_PLAYERS];						//path for each player
+	DLList dracula_real_path;								//dracula real path
+	size_t num_of_turns;									//number of turns 
+	int traps[MAX_TRAPS_NUMBER];							//record trap locations
+	int is_vampire_alive;									//whether the vampier is alive
+	location_t vampire_location;							//current vampire locations
 } dracula_view;
 
 //helper function
@@ -72,7 +72,6 @@ static void apply_dracula_rule(dracula_view *dv, char *token, location_t this_lo
 static DLList newDLList(void);
 static void freeDLList(DLList L);
 static void DLListInsert(DLList L, location_t location);
-//static void DLListInsert_nodup(DLList L, location_t location);
 static void original_string_to_real(char *string);
 static location_t *location_dracula_can_move(
 	dracula_view *dv, size_t *n_locations,
@@ -240,7 +239,7 @@ void dv_get_trail(
 		gv_get_history(dv->gv, player, trail);
 }
 
-location_t *dv_get_dests(
+location_t *dv_get_dests(											//consider the trail
 	dracula_view *dv, size_t *n_locations, bool road, bool sea)
 {
 	assert(dv!=NULL);
@@ -255,7 +254,7 @@ location_t *dv_get_dests(
 	}
 }
 
-location_t *dv_get_dests_player(
+location_t *dv_get_dests_player(                              //consider the trail 
 	dracula_view *dv, size_t *n_locations, enum player player,
 	bool road, bool rail, bool sea)
 {
@@ -271,7 +270,10 @@ location_t *dv_get_dests_player(
 	}
 }
 
-static location_t abbrevToLocation(char *abbrev)
+
+/////////////////////////////////////////////////////////helper functions/////////////////////////////////////////////////////////////////////
+
+static location_t abbrevToLocation(char *abbrev)						// change abrev string to location id
 {
 	if (strcmp(abbrev, "C?") == 0)
 		return CITY_UNKNOWN;
@@ -342,11 +344,11 @@ static void dracula_update_location(dracula_view *dv, location_t new_location)
 		}
 		new_location = curr->location;
 	}
-	else if (new_location == HIDE)
+	else if (new_location == HIDE)                                       //if the current location is HIDE 
 	{
-		new_location = dv->dracula_real_path->last->location;
-	}
-	else if (new_location == TELEPORT)
+		new_location = dv->dracula_real_path->last->location;			 //this two if is actually not neccessary,becasue TP HI are replaced
+	}																	 
+	else if (new_location == TELEPORT)									 // if the current location TP
 	{
 		new_location = CASTLE_DRACULA;
 	}
@@ -394,6 +396,7 @@ static void trap_update(dracula_view *dv)
 	}
 	dv->traps[0] = UNKNOWN_LOCATION;
 }
+////////////////////////////////linked_list interface///////////////////////////////
 static DLListNode *newDLListNode(location_t location)
 {
 	DLListNode *new;
@@ -460,7 +463,8 @@ static void DLListInsert(DLList L, location_t location)
 	}
 	DLListInsert(L, location);
 }*/
-static void original_string_to_real(char *string)
+///////////////////////////////////////////////////////////////////////////////////////
+static void original_string_to_real(char *string)							//turns TB,HI,CD to their real loaction
 {
 	size_t i = 73;
 	while (i < strlen(string))

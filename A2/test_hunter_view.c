@@ -434,7 +434,7 @@ int main (void)
 		assert (history[0] == DOUBLE_BACK_2);
 		assert (history[2] == CASTLE_DRACULA);
 		puts ("passed");
-        
+        hv_drop (hv);
     } while (0);
     
     do {/////////////////////////////////////////////////////////
@@ -467,7 +467,7 @@ int main (void)
 		assert (history[0] == DOUBLE_BACK_3);
 		assert (history[3] == TELEPORT);
 		puts ("passed");
-        
+        hv_drop (hv);
     } while (0);
     
     do {////////////////////////////////////////////////////////
@@ -497,7 +497,7 @@ int main (void)
         //printf ("%d\n", i);
         assert (hv_get_health (hv, PLAYER_DRACULA) == 40 - 2 - 10 - 10 - 2 + 10);
 		puts ("passed");
-        
+        hv_drop (hv);
     } while (0);
 	    	return EXIT_SUCCESS;
 }
