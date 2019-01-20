@@ -32,10 +32,10 @@ typedef struct game_view {
 
 static location_t abbrev_string_to_location (char a, char b);
 static void rotating_array_insert_size_6 (int *array,int a,int size);
-static void record_dracula_location (game_view *gv,char * past_play_array,int position);
-static void record_hunter_location (game_view *gv,char * past_play_array,int position,int id);
-static void damage_counting_at_hunter_turn(game_view *gv,char * past_play_array,int position,int id );
-static void damage_counting_at_dracula_turn(game_view *gv,char * past_play_array,int position);
+static void record_dracula_location (game_view *gv,char * past_play_array,unsigned int position);
+static void record_hunter_location (game_view *gv,char * past_play_array,unsigned int position,int id);
+static void damage_counting_at_hunter_turn(game_view *gv,char * past_play_array,unsigned int position,int id );
+static void damage_counting_at_dracula_turn(game_view *gv,char * past_play_array,unsigned int position);
 static void original_string_to_real (char* string);
 static void revive_the_hunter_after_death(game_view *gv,int id);
 
@@ -130,7 +130,7 @@ round_t gv_get_round (game_view *gv)
 enum player gv_get_player (game_view *gv)
 {
 	assert(gv!=NULL);
-	int num_player = gv->curr_turn % 5;
+	enum player num_player = gv->curr_turn % 5;
 	return num_player;
 }
 
@@ -175,18 +175,18 @@ location_t *gv_get_connections (
 	assert(gv!=NULL);
 	location_t* edges = NULL;
 	Map my_map = map_new ();
-    
+    unsigned int rround = (unsigned int) round;
 	if (  player != PLAYER_DRACULA){
-		if((round + player) %4 ==0){
+		if((rround + player) %4 ==0){
 			edges = check_for_connections_0_round(my_map, from, road, sea,n_locations);
 		}
-		if((round + player) %4 ==1){
+		if((rround + player) %4 ==1){
 			edges = check_for_connections_1_round(my_map, from, road, rail, sea,n_locations);
 		}
-		if((round + player) %4 ==2){
+		if((rround + player) %4 ==2){
 			edges = check_for_connections_2_round(my_map, from, road, rail, sea,n_locations);
 		}
-		if((round + player)%4 ==3){
+		if((rround + player)%4 ==3){
 			edges = check_for_connections_3_round(my_map, from, road, rail, sea,n_locations);
 		}
 	}else{		
@@ -205,7 +205,7 @@ location_t *gv_get_connections (
 
 
 static void original_string_to_real (char* string){
-	int i=73;
+	unsigned int i=73;
 	while(i < strlen(string)) {
 		if (string[i] == 'H' && string[i+1]=='I'){
 			string[i] = string[i-40];
@@ -266,11 +266,11 @@ static void rotating_array_insert_size_6 (int *array,int a,int size){
 	}
   	array[0]=a;
 }
-static void record_hunter_location (game_view *gv,char * past_play_array,int position,int id ){
+static void record_hunter_location (game_view *gv,char * past_play_array,unsigned int position,int id ){
 	int location_id = abbrev_string_to_location (past_play_array[position+1], past_play_array[position+2]);
 	rotating_array_insert_size_6 (gv->player_moves[id],location_id,TRAIL_SIZE);
 }
-static void record_dracula_location (game_view *gv,char * past_play_array,int position){
+static void record_dracula_location (game_view *gv,char * past_play_array,unsigned int position){
 	if (past_play_array[position+1] == 'C' && past_play_array[position+2] == '?') {
 		rotating_array_insert_size_6 (gv->player_moves[PLAYER_DRACULA],CITY_UNKNOWN,6);
 	}
@@ -303,10 +303,10 @@ static void record_dracula_location (game_view *gv,char * past_play_array,int po
     	rotating_array_insert_size_6 (gv->player_moves[PLAYER_DRACULA],location_id,6);
 	}
 }
-static void damage_counting_at_hunter_turn(game_view *gv,char * past_play_array,int position,int id ){
+static void damage_counting_at_hunter_turn(game_view *gv,char * past_play_array,unsigned int position,int id ){
 	int flag = 0;
 	revive_the_hunter_after_death(gv,id);
-	for (int i = 0;i<4;i++){
+	for (unsigned int i = 0;i<4;i++){
 		switch(past_play_array[position+3+i]) {
       		case 'T' :
 			gv->player_health[id] = (gv->player_health[id]-LIFE_LOSS_TRAP_ENCOUNTER<=0)? 0:gv->player_health[id]-LIFE_LOSS_TRAP_ENCOUNTER; break;
@@ -335,7 +335,7 @@ static void damage_counting_at_hunter_turn(game_view *gv,char * past_play_array,
 		gv->curr_score=gv->curr_score-6;
 	}
 }
-static void damage_counting_at_dracula_turn(game_view *gv,char * past_play_array,int position){
+static void damage_counting_at_dracula_turn(game_view *gv,char * past_play_array,unsigned int position){
 	if (past_play_array[position+1] == 'S' && past_play_array[position+2] == '?') {
 		gv->player_health[PLAYER_DRACULA]=gv->player_health[PLAYER_DRACULA]-LIFE_LOSS_SEA;
 	}
@@ -350,15 +350,6 @@ static void damage_counting_at_dracula_turn(game_view *gv,char * past_play_array
 	}
 }
 
-static void damage_counting_at_dracula_view_string(game_view *gv,char * past_play_array,int position){
-	location_t id = abbrev_string_to_location(past_play_array[position+1],past_play_array[position+2]);
-	if(valid_location_p(id)==true){
-		if (sea_p(abbrev_string_to_location(past_play_array[position+1],past_play_array[position+2]))) {
-			gv->player_health[PLAYER_DRACULA]=gv->player_health[PLAYER_DRACULA]-LIFE_LOSS_SEA;
-		}
-	}
-	
-}
 static void revive_the_hunter_after_death(game_view *gv,int id){
 	if (gv->player_health[id]<=0){			
 		gv->player_health[id]=9;
