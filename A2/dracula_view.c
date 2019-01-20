@@ -49,11 +49,10 @@ enum
 
 typedef struct dracula_view
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	
 	GameView gv;
 	Map world_map;
 	char *past_plays;
-	//char *real_past_plays;
 	player_message *messages;
 	DLList player_path[NUM_PLAYERS];
 	DLList dracula_real_path;
@@ -81,7 +80,6 @@ static location_t *location_dracula_can_move(
 
 dracula_view *dv_new(char *past_plays, player_message messages[])
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
 	dracula_view *new = malloc(sizeof *new);
 	if (new == NULL)
 		err(EX_OSERR, "couldn't allocate DraculaView");
@@ -107,26 +105,19 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 
 	char *token, *s;
 	s = strdup(past_plays);
-	char *start = s;                              //*********** critical****
-	//new->real_past_plays = strdup(past_plays);
-	original_string_to_real(s);
-	//printf("%s\n",new->real_past_plays);
-	//assert(1==2);
-	while ((token = strsep(&s, " ")) != NULL)   // this will change the s location !!! check strsep man page
+	char *start = s;                             
+	original_string_to_real(s);													  // change the TP HI DB to its real location
+	while ((token = strsep(&s, " ")) != NULL)                                     // parse the string by " " into each node 
 	{
-		// apply rule for each turn
-		// get location (pos1+2)
 		char abbrev[3];
 		abbrev[0] = token[1];
 		abbrev[1] = token[2];
 		abbrev[2] = '\0';
 		location_t this_location = abbrevToLocation(abbrev);
-		//printf("%d\n",this_location);
-		//get player for each turn
+
 		enum player this_player = new->num_of_turns % NUM_PLAYERS;
 		if (this_player == PLAYER_DRACULA)
 		{
-			//rule of dracula
 			dracula_update_location(new, this_location);
 			apply_dracula_rule(new, token, this_location);
 		}
@@ -138,8 +129,7 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 		new->num_of_turns++;
 	}
 	free(s);
-	free(start);                 //***********
-	//free(new->past_plays);
+	free(start);              
 	new->messages = malloc((new->num_of_turns / NUM_PLAYERS) * sizeof(player_message));
 	size_t j = 0;
 	for (size_t i = PLAYER_DRACULA; i < new->num_of_turns; i += NUM_PLAYERS)
@@ -152,7 +142,6 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 
 void dv_drop(dracula_view *dv)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
 	gv_drop(dv->gv);
 	map_drop(dv->world_map);
 	free(dv->past_plays);
@@ -163,31 +152,30 @@ void dv_drop(dracula_view *dv)
 		freeDLList(dv->player_path[i]);
 	}
 	freeDLList(dv->dracula_real_path);
-	//free(dv->real_past_plays);
 	free(dv);
 }
 
 round_t dv_get_round(dracula_view *dv)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	return gv_get_round(dv->gv);
 }
 
 int dv_get_score(dracula_view *dv)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	return gv_get_score(dv->gv);
 }
 
 int dv_get_health(dracula_view *dv, enum player player)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	return gv_get_health(dv->gv, player);
 }
 
 location_t dv_get_location(dracula_view *dv, enum player player)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	if (player == PLAYER_DRACULA)
 	{
 		if (dv->dracula_real_path->nitems == 0)
@@ -203,18 +191,11 @@ void dv_get_player_move(
 	dracula_view *dv, enum player player,
 	location_t *start, location_t *end)
 {
-	// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	location_t trail[TRAIL_SIZE];
 	gv_get_history(dv->gv, player, trail);
 	*end = trail[0];
 	*start = trail[1];
-	// location_t prev = *end;
-	// for (int i = 1; i < TRAIL_SIZE; i++)
-	// {
-	// 	if (trail[i] == -1)
-	// 		*start = prev;
-	// 	prev = trail[i];
-	// }
 	return;
 }
 
@@ -222,7 +203,7 @@ void dv_get_locale_info(
 	dracula_view *dv, location_t where,
 	int *n_traps, int *n_vamps)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	if (dv->is_vampire_alive && dv->vampire_location == where)
 		*n_vamps = dv->is_vampire_alive;
 	else
@@ -240,7 +221,7 @@ void dv_get_trail(
 	dracula_view *dv, enum player player,
 	location_t trail[TRAIL_SIZE])
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	if (player == PLAYER_DRACULA)
 	{
 		DLListNode *curr = dv->dracula_real_path->last;
@@ -262,11 +243,10 @@ void dv_get_trail(
 location_t *dv_get_dests(
 	dracula_view *dv, size_t *n_locations, bool road, bool sea)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	*n_locations = 0;
 	if (dv->dracula_real_path->last != NULL)
 	{
-		//return gv_get_connections(dv->gv, n_locations, dv->dracula_real_path->last->location, PLAYER_DRACULA, 0, road, false, sea);
 		return location_dracula_can_move(dv, n_locations, dv->dracula_real_path->last->location, road, sea);
 	}
 	else
@@ -279,7 +259,7 @@ location_t *dv_get_dests_player(
 	dracula_view *dv, size_t *n_locations, enum player player,
 	bool road, bool rail, bool sea)
 {
-	/// @todo REPLACE THIS WITH YOUR OWN IMPLEMENTATION
+	assert(dv!=NULL);
 	*n_locations = 0;
 	if (player == PLAYER_DRACULA)
 		return dv_get_dests(dv, n_locations, road, sea);
@@ -539,27 +519,10 @@ static location_t *location_dracula_can_move(
 	// dracula can't go to ST_JOSEPH_AND_ST_MARYS
 	visited[ST_JOSEPH_AND_ST_MARYS] = 1;
 	//dramula move
-	/*
-		bool can_hide = true;
-		bool can_doubleback = true;
-		// can't hide in sea
-		if ((valid_location_p(from) && location_get_type(from) == SEA) || from == SEA_UNKNOWN)
-			can_hide = false;
-	*/
 	// can't go a location in his most recent 5 moves
 	location_t trail[TRAIL_SIZE];
 	gv_get_history(dv->gv, PLAYER_DRACULA, trail);
-	/*
-	for (int i = 0; i < TRAIL_SIZE - 1; i++)
-	{
-		// he cannot make a HIDE move if he already has a HIDE move in his trail
-		if (trail[i] == HIDE)
-			can_hide = false;
-		// he cannot make a DOUBLE_BACK move if he already has a DOUBLE_BACK move in his trail
-		if (trail[i] >= DOUBLE_BACK_1 && trail[i] <= DOUBLE_BACK_5)
-			can_doubleback = false;
-	}
-	*/
+
 
 	// it cannot be a location in his most recent 5 moves
 	DLListNode *curr = dv->dracula_real_path->last;
@@ -572,11 +535,6 @@ static location_t *location_dracula_can_move(
 		}
 	}
 
-	// if (can_hide)
-	// 	DLListInsert(connection_list, HIDE);
-	// if (can_doubleback)
-	// 	for (int i = DOUBLE_BACK_1; i <= DOUBLE_BACK_5; i++)
-	// 		DLListInsert(connection_list, i);
 	/* 
 		-- not finished -- 
 		if he makes a DOUBLE_BACK move, the Hunters know...
@@ -607,6 +565,6 @@ static location_t *location_dracula_can_move(
 		result[i] = curr->location;
 		curr = curr->next;
 	}
-	freeDLList(connection_list);       ///forgot to free;
+	freeDLList(connection_list);      
 	return result;
 }

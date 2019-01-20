@@ -62,7 +62,7 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 			location_t id = abbrev_string_to_location(new->real_past_plays[k+1],new->real_past_plays[k+2]);
 			// when current location is valid;
 			if(valid_location_p(id) == true){
-				new->Dracula_real_curr_location = id;                                  // if the location is valid actually valid , the dracula db to a valid location
+				new->Dracula_real_curr_location = id;     // if the location is valid actually valid , the dracula db to a valid location
 			}else{
 				new->Dracula_real_curr_location=gv_get_location (new->gv, PLAYER_DRACULA);
 			}
@@ -96,29 +96,31 @@ void hv_drop (hunter_view *hv)
 
 round_t hv_get_round (hunter_view *hv)
 {
-	
+	assert(hv!=NULL);
 	return gv_get_round (hv->gv);
 }
 
 enum player hv_get_player (hunter_view *hv)
 {
-	
+	assert(hv!=NULL);
 	return gv_get_player (hv->gv);
 }
 
 int hv_get_score (hunter_view *hv)
 {
+	assert(hv!=NULL);
 	return gv_get_score(hv->gv);
 }
 
 int hv_get_health (hunter_view *hv, enum player player)
 {
-	
+	assert(hv!=NULL);
 	return gv_get_health (hv->gv, player);
 }
 
 location_t hv_get_location (hunter_view *hv, enum player player)
 {	
+	assert(hv!=NULL);
 	if(player != PLAYER_DRACULA){
 		return gv_get_location (hv->gv, player);
 	}else{
@@ -131,6 +133,7 @@ void hv_get_trail (
 	hunter_view *hv, enum player player,
 	location_t trail[TRAIL_SIZE])
 {
+	assert(hv!=NULL);
 	gv_get_history (hv->gv, player, trail);
 }
 
@@ -138,7 +141,7 @@ location_t *hv_get_dests (
 	hunter_view *hv, size_t *n_locations,
 	bool road, bool rail, bool sea)
 {	
-
+	assert(hv!=NULL);
 	enum player curr_player = hv_get_player (hv);
 	location_t curr_location = hv_get_location (hv, curr_player);
 	round_t curr_round = hv_get_round (hv);
@@ -153,7 +156,7 @@ location_t *hv_get_dests_player (
 	hunter_view *hv, size_t *n_locations, enum player player,
 	bool road, bool rail, bool sea)
 {   
-
+	assert(hv!=NULL);
 	//when player is dracula;
     if (player == PLAYER_DRACULA) {
 
