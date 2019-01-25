@@ -129,13 +129,7 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 	}
 	free(s);
 	free(start);              
-	new->messages = malloc((new->num_of_turns / NUM_PLAYERS) * sizeof(player_message));
-	/*size_t j = 0;
-	for (size_t i = PLAYER_DRACULA; i < new->num_of_turns; i += NUM_PLAYERS)
-	{
-		strcpy(new->messages[j], messages[i]);
-		j++;
-	}*/
+	new->messages = messages;
 	return new;
 }
 
@@ -144,8 +138,8 @@ void dv_drop(dracula_view *dv)
 	gv_drop(dv->gv);
 	map_drop(dv->world_map);
 	free(dv->past_plays);
-	if (dv->messages != NULL)
-		free(dv->messages);
+	//if (dv->messages != NULL)
+		//free(dv->messages);
 	for (int i = 0; i < NUM_PLAYERS; i++)
 	{
 		freeDLList(dv->player_path[i]);

@@ -11,9 +11,63 @@
 #include "hunter_view.h"
 #include <stdbool.h>
 #include <time.h>
+
+
+
+//int findPath(Graph g, Vertex src, Vertex dest, int max, int *path);
 void decide_hunter_move (HunterView hv)
 {
-	time_t t1;
+	enum player curr_player = hv_get_player(hv); // get current player
+	round_t curr_round = hv_get_round(hv);
+	if (curr_round == 0){
+		if(curr_player == PLAYER_LORD_GODALMING) {
+			register_best_play ("BU", "");
+		}else if (curr_player == PLAYER_DR_SEWARD){
+			register_best_play ("GR", "");
+		}else if (curr_player == PLAYER_VAN_HELSING){
+			register_best_play ("VI", "");
+		}else if (curr_player == PLAYER_MINA_HARKER){
+			register_best_play ("SO", "");
+		}
+	}else{
+		location_t Dra_location = hv_get_location (hv, PLAYER_DRACULA);	//get dracula_current_location
+		//if (!valid_location_p (Dra_location)) {							//if the location is UNKNOWN
+			size_t n_locations;											//initialize number of locations
+			location_t trail[TRAIL_SIZE];								//initalize Trail array
+			location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true); //initialize destination array
+			hv_get_trail (hv, curr_player,trail);
+			if(curr_player == PLAYER_LORD_GODALMING &&  trail[5] == BRUSSELS ){
+				register_best_play ("BU", "");
+				return;
+			}
+			int All_dest_has_been = true;
+			for(int i = 0;i<n_locations;i++){
+				int found_flag = false;
+				for(int j = 0; j<TRAIL_SIZE;j++){
+					if(H_dests[i] == trail[j]){
+						found_flag = true;
+						
+					}
+				}
+				if (found_flag == false){
+					register_best_play (location_get_abbrev(H_dests[i]), "");
+					return;				
+				}
+
+			}
+			register_best_play (location_get_abbrev(trail[1]), "");
+			return;
+		
+		//}else{
+
+
+
+
+		//}
+	}
+}
+
+/*time_t t1;
 	srand((unsigned) time(&t1));
 	round_t curr_round = hv_get_round(hv);
 	if (curr_round == 0){
@@ -36,6 +90,6 @@ void decide_hunter_move (HunterView hv)
 
 		//char *new_play = (char*) play;
 		/// @todo Replace this with something better!*/
-		register_best_play (play, "");
-	}
-}
+		//register_best_play (play, "");
+	//}                                               random strategy
+

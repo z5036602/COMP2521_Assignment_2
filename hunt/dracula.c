@@ -17,20 +17,20 @@ void decide_dracula_move (DraculaView dv)
 	srand((unsigned) time(&t1));
 	round_t curr_round = dv_get_round(dv);
 	if (curr_round == 0){
-		register_best_play ("CG", "");
+		register_best_play ("CD", "haha");
 		//register_best_play ("CD", "");
 		//register_best_play ("CD", "");
 	}else if (curr_round == 1){
-		register_best_play ("TS", "");
+		register_best_play ("GA", "hahaha");
 
 	}else if (curr_round == 2){
-		register_best_play ("MS", "");
+		register_best_play ("KL", "");
 
 	}else if (curr_round == 3){
 		register_best_play ("D3", "");
 
 	}else if (curr_round == 4){
-		register_best_play ("HI", "");
+		register_best_play ("HI", "TP");
 	
 	}
 	else{

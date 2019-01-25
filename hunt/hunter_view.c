@@ -24,6 +24,8 @@ typedef struct hunter_view {
 	int real_location_array[TRAIL_SIZE];     //save real loction from double back and hide;
 	location_t Dracula_real_curr_location; 
 	player_message *messages;	
+	Map world_map;	
+	
 } hunter_view;
 
 static void original_string_to_real (char* string);
@@ -46,8 +48,8 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 	new->messages =messages;
 	new->gv = gv_new (past_plays, messages);
 	assert (new->gv != NULL);
-
-
+	new->world_map = map_new();
+	
 	//initial and create hunter view real location; in order to save real loction from double back and hide;
     int m = 0;
 	  		while (m < TRAIL_SIZE) {
@@ -76,7 +78,7 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 
 void hv_drop (hunter_view *hv)
 {
-
+	map_drop(hv->world_map);
 	gv_drop (hv->gv);
 	free(hv->real_past_plays);
 	free (hv);
@@ -212,6 +214,60 @@ location_t *hv_get_dests_player (
 	
 	return where_to_go;
     }
+}
+int findPath(hunter_view *hv, location_t src, location_t dest, location_t *path){
+	assert(g != NULL);
+	int visited[g->nV];
+	Vertex st[g->nV];
+	//printf("%d\n",g->edges[start_node_of_edge][0]);
+	size_t counter = 0;
+	for (int i = 0;i < g->nV;i++){
+		visited [i] = 0;
+		st [i] = -1;
+	}
+	Queue q = newQueue();
+	QueueJoin (q, src);
+	visited[src]=1;
+	while ( QueueIsEmpty(q) != 1 ){	
+		Vertex start_node_of_edge = QueueLeave(q);   // to find the ajacent
+		for (int j =0; j< g->nV;j++){
+			if ((g->edges[start_node_of_edge][j] > 0 && g->edges[start_node_of_edge][j] <= max) && visited[j]==0 ){
+				                              // it actually means the vertice is already saved
+				QueueJoin (q, j);
+				visited[j]=1;  	
+				st[j] = start_node_of_edge;
+			}
+		}
+		
+		
+	}
+	dropQueue(q);
+	if (dest == src){
+		path[0] = src;
+		return 1;
+	}
+	if (st[dest] == -1){	
+		return 0; 
+	}
+
+	int i = 0;
+	while (src != dest){
+		path[i]= dest;
+		dest = st[dest];
+		i++;
+	}
+	path[i]= src;
+	int number_elements = i+1;
+
+	int j=0;
+	while (i>=j){
+		swap_element_array(i,j,path);
+		i--;
+		j++;
+	}
+	return number_elements;
+
+
 }
 
 

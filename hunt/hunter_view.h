@@ -137,4 +137,9 @@ location_t *hv_get_dests_player (
 	HunterView hv, size_t *n_locations,
 	enum player player, bool road, bool rail, bool sea);
 
+int findPath(map g, location_t src, location_t dest, location_t *path)
+
+
+
+
 #endif // !defined (FOD__HUNTER_VIEW_H_)
