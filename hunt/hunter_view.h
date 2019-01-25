@@ -14,7 +14,6 @@
 #include "game.h"
 #include "game_view.h"
 #include "places.h"
-
 typedef struct hunter_view *HunterView;
 
 /**
@@ -80,7 +79,8 @@ int hv_get_health (HunterView hv, enum player player);
  * - `TELEPORT`, if Dracula apparated back to Castle Dracula.
  */
 location_t hv_get_location (HunterView hv, enum player player);
-
+void hv_dra_last_seen_setter (HunterView hv,location_t last_seen);
+location_t hv_dra_last_seen_getter (HunterView hv);
 /**
  * Fills the trail array with the locations of the last 6 turns for the
  * given player.
@@ -136,10 +136,9 @@ location_t *hv_get_dests (
 location_t *hv_get_dests_player (
 	HunterView hv, size_t *n_locations,
 	enum player player, bool road, bool rail, bool sea);
-
-int findPath(map g, location_t src, location_t dest, location_t *path)
-
-
-
-
+	
+	
+	
+	
+int findPath_hunter(HunterView hv, location_t src, location_t dest, location_t *path);
 #endif // !defined (FOD__HUNTER_VIEW_H_)

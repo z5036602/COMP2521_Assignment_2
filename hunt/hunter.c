@@ -11,14 +11,18 @@
 #include "hunter_view.h"
 #include <stdbool.h>
 #include <time.h>
-
+#include <stdio.h>
 
 
 //int findPath(Graph g, Vertex src, Vertex dest, int max, int *path);
 void decide_hunter_move (HunterView hv)
-{
+{	
 	enum player curr_player = hv_get_player(hv); // get current player
 	round_t curr_round = hv_get_round(hv);
+	location_t dra_trail[TRAIL_SIZE];
+	hv_get_trail(hv, PLAYER_DRACULA, dra_trail);
+	location_t dra_last_seen = -1;
+
 	if (curr_round == 0){
 		if(curr_player == PLAYER_LORD_GODALMING) {
 			register_best_play ("BU", "");
@@ -29,41 +33,85 @@ void decide_hunter_move (HunterView hv)
 		}else if (curr_player == PLAYER_MINA_HARKER){
 			register_best_play ("SO", "");
 		}
+		/*location_t Dra_location = hv_get_location (hv, PLAYER_DRACULA);	//get dracula_current_location
+		if (valid_location_p (Dra_location)){
+			hv_dra_last_seen_setter (hv,Dra_location);		
+		}*/
 	}else{
-		location_t Dra_location = hv_get_location (hv, PLAYER_DRACULA);	//get dracula_current_location
-		//if (!valid_location_p (Dra_location)) {							//if the location is UNKNOWN
-			size_t n_locations;											//initialize number of locations
-			location_t trail[TRAIL_SIZE];								//initalize Trail array
-			location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true); //initialize destination array
-			hv_get_trail (hv, curr_player,trail);
-			if(curr_player == PLAYER_LORD_GODALMING &&  trail[5] == BRUSSELS ){
-				register_best_play ("BU", "");
-				return;
+		//location_t Dra_location = hv_get_location (hv, PLAYER_DRACULA);	//get dracula_current_location
+		//if (!valid_location_p (Dra_location)) {	
+			//int found_flag=false;		
+			for (int i =0; i<TRAIL_SIZE;i++){
+				if (valid_location_p (dra_trail[i])){
+					dra_last_seen = dra_trail[i];
+				}
 			}
-			int All_dest_has_been = true;
-			for(int i = 0;i<n_locations;i++){
-				int found_flag = false;
-				for(int j = 0; j<TRAIL_SIZE;j++){
-					if(H_dests[i] == trail[j]){
-						found_flag = true;
+			if (dra_last_seen == -1){														//if the location is UNKNOWN
+				/*size_t n_locations;															//initialize number of locations
+				location_t trail[TRAIL_SIZE];												//initalize Trail array
+				location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true); 	//initialize destination array
+				hv_get_trail (hv, curr_player,trail);
+				int All_dest_has_been = true;
+				for(int i = 0;i<n_locations;i++){
+					int found_flag = false;
+					for(int j = 0; j<TRAIL_SIZE;j++){
+						if(H_dests[i] == trail[j]){
+							found_flag = true;
 						
+						}
 					}
+					if (found_flag == false){
+						register_best_play (location_get_abbrev(H_dests[i]), "");
+						return;				
+					}
+
+				}*/
+				register_best_play (location_get_abbrev(hv_get_location (hv, curr_player)), "");
+				return;
+			}else{
+				location_t path[100];
+				int number_of_hops = findPath_hunter(hv, hv_get_location(hv,curr_player), dra_last_seen, path);
+				for (int i =0;i<number_of_hops;i++){
+					printf("%s-> ",  location_get_abbrev(path[i]));
 				}
-				if (found_flag == false){
-					register_best_play (location_get_abbrev(H_dests[i]), "");
-					return;				
-				}
+				size_t n_locations;		
+				location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true);
+				//for(int i = 0;i<n_locations;i++){
+					//for(int j = 0; j<number_of_hops;j++){
+						//if(H_dests[i] == path[j]){
+							if (hv_get_location(hv,curr_player) != dra_last_seen){
+								register_best_play (location_get_abbrev(path[1]), "");
+								return;
+							}else{
+								register_best_play (location_get_abbrev(path[0]), "");
+								return;
+							}
+						//}	}
+					//}
+				//}
 
 			}
-			register_best_play (location_get_abbrev(trail[1]), "");
-			return;
+		
 		
 		//}else{
-
-
-
-
-		//}
+			//printf("dracula_location_found is %s\n",location_get_abbrev(Dra_location));
+			//hv_dra_last_seen_setter (hv,Dra_location);			
+			//location_t path[100];
+			//int number_of_hops = findPath_hunter(hv, hv_get_location(hv,curr_player), Dra_location, path);
+			//for (int i =0;i<number_of_hops;i++){
+			//	printf("%s-> ",  location_get_abbrev(path[i]));
+			//}
+			//size_t n_locations;		
+			//location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true);
+			//for(int i = 0;i<n_locations;i++){
+			//	for(int j = 0; j<number_of_hops;j++){
+			//		if(H_dests[i] == path[j]){
+			//			register_best_play (location_get_abbrev(H_dests[i]), "");
+			//			return;
+			//		}
+				//}
+			//}
+		
 	}
 }
 
