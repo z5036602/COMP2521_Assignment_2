@@ -14,7 +14,6 @@
 #include "game.h"
 #include "game_view.h"
 #include "places.h"
-
 typedef struct hunter_view *HunterView;
 
 /**
@@ -136,5 +135,9 @@ location_t *hv_get_dests (
 location_t *hv_get_dests_player (
 	HunterView hv, size_t *n_locations,
 	enum player player, bool road, bool rail, bool sea);
-
+	
+	
+	
+	
+int findPath_hunter(HunterView hv, location_t src, location_t dest, location_t *path);
 #endif // !defined (FOD__HUNTER_VIEW_H_)

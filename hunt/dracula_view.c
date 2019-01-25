@@ -19,6 +19,8 @@
 #include "game.h"
 #include "game_view.h"
 #include "map.h"
+#include "Queue.h"
+
 //tingting
 //#include "DDList.h"
 // #include "map.h" ... if you decide to use the Map ADT

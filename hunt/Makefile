@@ -30,13 +30,13 @@ player_hunter.o: player.c hunter.h game.h hunter_view.h game_view.h places.h
 dracula.o:	dracula.c dracula.h dracula_view.h game_view.h places.h game.h
 hunter.o:	hunter.c hunter.h hunter_view.h game_view.h places.h game.h
 game_view.o:	game_view.c game_view.h places.h game.h
-dracula_view.o:	dracula_view.c dracula_view.h game_view.h places.h game.h
-hunter_view.o:	hunter_view.c game_view.h places.h hunter_view.h game.h
+dracula_view.o:	dracula_view.c dracula_view.h game_view.h places.h game.h Queue.h Queue.c Item.h
+hunter_view.o:	hunter_view.c game_view.h places.h hunter_view.h game.h Queue.h Queue.c Item.h
 map.o:		map.c map.h places.h
 places.o:	places.c places.h
 
 # if you use other ADTs, add dependencies for them here
-
+Queue.o:	Queue.c Queue.h Item.h
 .PHONY: clean
 clean:
 	-rm -f ${BINS} *.o core

@@ -11,6 +11,7 @@
 #include "game.h"
 #include <time.h>
 #include <stdio.h>
+
 void decide_dracula_move (DraculaView dv)
 {
 	time_t t1;
