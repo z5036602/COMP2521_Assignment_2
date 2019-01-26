@@ -78,6 +78,7 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 	original_string_to_real(new->real_past_plays);
 	new->messages =messages;
 	new->gv = gv_new (past_plays, messages);
+	printf("%s\n",new->real_past_plays);
 	assert (new->gv != NULL);
 	new->dra_last_seen = -1;
 
@@ -103,6 +104,9 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 		
 		k+=8;
        
+	}
+	for (int j = 0; j<TRAIL_SIZE;j++){
+		printf("%s->",location_get_abbrev(new->real_location_array[j]));	
 	}
 	return new;
 }
@@ -161,7 +165,17 @@ void hv_get_trail (
 	location_t trail[TRAIL_SIZE])
 {
 	assert(hv!=NULL);
-	gv_get_history (hv->gv, player, trail);
+	if (player == PLAYER_DRACULA){
+		int n = 0;
+		while (n < TRAIL_SIZE) {
+			trail[n] = hv->real_location_array[n];
+			n++;
+		}
+
+
+	}else {
+		gv_get_history (hv->gv, player, trail);
+	}
 }
 
 location_t *hv_get_dests (
@@ -254,6 +268,7 @@ location_t *hv_get_dests_player (
 }
 //BFS
 int findPath_hunter(hunter_view *hv, location_t src, location_t dest, location_t *path){
+	assert(hv!=NULL);
     assert(hv->world_map != NULL);
     int visited[hv->world_map->n_vertices];
     location_t st[hv->world_map->n_vertices];

@@ -14,8 +14,48 @@
 #include "game.h"
 #include "game_view.h"
 #include "places.h"
+#include "map.h"
+
+typedef struct DLListNode
+{
+	location_t location; // value of this list item (string)
+	struct DLListNode *prev;
+	// pointer previous node in list
+	struct DLListNode *next;
+	// pointer to next node in list
+} DLListNode;
+
+typedef struct DLListRep
+{
+	size_t nitems;	 // count of items in list
+	DLListNode *first; // first node in list
+	DLListNode *curr;  // current node in list
+	DLListNode *last;  // last node in list
+} DLListRep;
+
+typedef struct DLListRep *DLList;
+
+enum
+{
+	MAX_TRAPS_NUMBER = 6
+};
 
 typedef struct dracula_view *DraculaView;
+
+typedef struct dracula_view
+{
+	
+	GameView gv;											//parent gv ADT
+	Map world_map;											//graph ADT
+	char *past_plays;									
+	player_message *messages;
+	DLList player_path[NUM_PLAYERS];						//path for each player
+	DLList dracula_real_path;								//dracula real path
+	size_t num_of_turns;									//number of turns 
+	int traps[MAX_TRAPS_NUMBER];							//record trap locations
+	int is_vampire_alive;									//whether the vampier is alive
+	location_t vampire_location;							//current vampire locations
+} dracula_view;
 
 /**
  * Creates a new view to summarise the current state of the game.
@@ -155,3 +195,4 @@ location_t *dv_get_dests_player (
 	enum player player, bool road, bool rail, bool sea);
 
 #endif // !defined(FOD__DRACULA_VIEW_H_)
+

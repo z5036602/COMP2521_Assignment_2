@@ -23,6 +23,8 @@ typedef struct map
 {
 	size_t n_vertices, n_edges;
 
+	int degree_without_rail[NUM_MAP_LOCATIONS];
+
 	struct map_adj
 	{
 		location_t v;					// ALICANTE, etc
@@ -51,3 +53,4 @@ location_t* check_for_connections_2_round(Map g, location_t src, bool road, bool
 location_t* check_for_connections_3_round(Map g, location_t src, bool road, bool rail, bool sea,size_t *n_locations);
 location_t* check_for_connections_dracula(Map g, location_t src, bool road, bool sea,size_t *n_locations);
 #endif // !defined(FOD__MAP_H_)
+

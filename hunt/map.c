@@ -16,8 +16,6 @@
 #include "map.h"
 #include "places.h"
 
-
-
 static void add_connections(map *);
 static void add_connection(map *, location_t, location_t, transport_t);
 static inline bool is_sentinel_edge(connection);
@@ -37,6 +35,9 @@ map *map_new(void)
 		.n_vertices = NUM_MAP_LOCATIONS,
 		.n_edges = 0,
 		.connections = {NULL}};
+
+	for (int i = 0; i < NUM_MAP_LOCATIONS; i++)
+		g->degree_without_rail[i] = 0;
 
 	add_connections(g);
 	return g;
@@ -132,6 +133,12 @@ static void add_connection(
 	g->connections[start] = adjlist_insert(g->connections[start], end, type);
 	g->connections[end] = adjlist_insert(g->connections[end], start, type);
 	g->n_edges++;
+
+	if (type != RAIL)
+	{
+		g->degree_without_rail[start]++;
+		g->degree_without_rail[end]++;
+	}
 }
 
 /// Is this the magic 'sentinel' edge?
@@ -429,3 +436,4 @@ location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool
 	*n_locations = counter;
 	return adj_locations;
 }
+
