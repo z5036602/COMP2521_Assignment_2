@@ -87,7 +87,12 @@ void decide_hunter_move (HunterView hv)
 			}
 		}else{
 			//if (hv_get_location(hv,PLAYER_DRACULA) == dra_last_seen){
+				/*if(hv_get_location(hv,PLAYER_LORD_GODALMING) == dra_last_seen || hv_get_location(hv,PLAYER_DR_SEWARD) == dra_last_seen|| hv_get_location(hv,PLAYER_VAN_HELSING) == dra_last_seen||hv_get_location(hv,PLAYER_MINA_HARKER == dra_last_seen) && hv_get_location(hv,PLAYER_DRACULA) != dra_last_seen){
 
+					register_best_play (location_get_abbrev(hv_get_location(hv,curr_player)), "");
+					return;
+
+				}*/
 				location_t path[100];				
 				int number_of_hops = findPath_hunter(hv, hv_get_location(hv,curr_player), dra_last_seen, path);
 				for (int j = 0; j<number_of_hops;j++){
