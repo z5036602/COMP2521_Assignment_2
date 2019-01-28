@@ -15,9 +15,10 @@
 #include <assert.h>
 int distance (location_t src, location_t dest,HunterView hv);
 location_t* select_dests_not_in_trail(location_t *dests,size_t *n_locations,int size,HunterView hv);
-void searching_move(HunterView hv,location_t anker_point);
+void searching_move(HunterView hv,location_t anker_point,int distance);
 location_t * select_dests_less_than_distance(location_t *dests,size_t *n_locations,location_t anker_point,int distance_away,int size,HunterView hv);
 location_t* find_common_locations (location_t *dests_1,location_t *dests_2,int size_1,int size_2,size_t *n_locations);
+void chase(location_t dra_last_seen,HunterView hv);
 //int findPath(Graph g, Vertex src, Vertex dest, int max, int *path);
 void decide_hunter_move (HunterView hv)
 {	
@@ -32,13 +33,13 @@ void decide_hunter_move (HunterView hv)
 
 	if (curr_round == 0){
 		if(curr_player == PLAYER_LORD_GODALMING) {
-			register_best_play ("BU", "");
+			register_best_play ("LO", "");
 		}else if (curr_player == PLAYER_DR_SEWARD){
-			register_best_play ("GR", "");
+			register_best_play ("BE", "");
 		}else if (curr_player == PLAYER_VAN_HELSING){
-			register_best_play ("VI", "");
+			register_best_play ("MA", "");
 		}else if (curr_player == PLAYER_MINA_HARKER){
-			register_best_play ("SO", "");
+			register_best_play ("ZU", "");
 		}
 	}else{
 		for (int i =0; i<TRAIL_SIZE;i++){
@@ -48,88 +49,82 @@ void decide_hunter_move (HunterView hv)
 			}		
 		}
 		if (dra_last_seen == -1 ){
-			if(curr_round< 7){
+			//if(curr_round< 7){
 				if(curr_player == PLAYER_LORD_GODALMING) {
-					searching_move(hv,BRUSSELS);
+					searching_move(hv,BRUSSELS,6);
 					return;
 				}else if (curr_player == PLAYER_DR_SEWARD){
-					searching_move(hv,GRANADA);
+					searching_move(hv,GRANADA,6);
 					return;
 				}else if (curr_player == PLAYER_VAN_HELSING){
-					searching_move(hv,VIENNA);
+					searching_move(hv,VIENNA,6);
 					return;
 				}else if (curr_player == PLAYER_MINA_HARKER){
-					searching_move(hv,SOFIA);
+					searching_move(hv,SOFIA,6);
 					return;
 				}
-			}
-			else{
-			//	if (curr_round %2==0)
-					register_best_play (location_get_abbrev(hv_get_location(hv,curr_player)), "");
-				//else{
-			//		if(curr_player == PLAYER_LORD_GODALMING) {
-			//		searching_move(hv,BRUSSELS);
-			//		return;
-			//	}else if (curr_player == PLAYER_DR_SEWARD){
-			//		searching_move(hv,GRANADA);
-			//		return;
-			//	}else if (curr_player == PLAYER_VAN_HELSING){
-			//		searching_move(hv,VIENNA);
-			//		return;
-			//	}else if (curr_player == PLAYER_MINA_HARKER){
-			///		searching_move(hv,SOFIA);
-			//		return;
-			//	}	
-//
-
-			//	}
+			//}
+			//else{
+			//	register_best_play (location_get_abbrev(hv_get_location(hv,curr_player)), "");
+			//	return;
+			//}
+		}else{		
+			if (hv_get_location(hv,PLAYER_DRACULA) != dra_last_seen && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)<3){
+				searching_move(hv,dra_last_seen,4);
 				return;
 			}
-		}else{
-			//if (hv_get_location(hv,PLAYER_DRACULA) == dra_last_seen){
-				/*if(hv_get_location(hv,PLAYER_LORD_GODALMING) == dra_last_seen || hv_get_location(hv,PLAYER_DR_SEWARD) == dra_last_seen|| hv_get_location(hv,PLAYER_VAN_HELSING) == dra_last_seen||hv_get_location(hv,PLAYER_MINA_HARKER == dra_last_seen) && hv_get_location(hv,PLAYER_DRACULA) != dra_last_seen){
+				if(curr_player == PLAYER_LORD_GODALMING) {
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
 
-					register_best_play (location_get_abbrev(hv_get_location(hv,curr_player)), "");
-					return;
+					chase(dra_last_seen,hv);
 
-				}*/
-				location_t path[100];				
-				int number_of_hops = findPath_hunter(hv, hv_get_location(hv,curr_player), dra_last_seen, path);
-				for (int j = 0; j<number_of_hops;j++){
-					printf("%s->",location_get_abbrev(path[j]));	
-				}
-				size_t n_locations;		
-				location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true);
-				int counter = 0;
-				for(int i = 0;i<number_of_hops;i++){
-					for(int j = 0; j<n_locations;j++){
-						if(H_dests[j] == path[i]){
-							counter = i;
-						}
 					}
-				}
-				
-				if (hv_get_location(hv,curr_player) != dra_last_seen){
-					register_best_play (location_get_abbrev(path[counter]), "");
-					return;
-				
-				}else{
-					register_best_play (location_get_abbrev(path[0]), "");
-					return;
-				
+					else{
 
+						searching_move(hv,dra_last_seen,4);
+						return;
 
-				}
+					}
+				}else if (curr_player == PLAYER_DR_SEWARD){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
 
+					chase(dra_last_seen,hv);
 
+					}
+					else{
+						searching_move(hv,dra_last_seen,4);
+						return;
 
+					}
+				}else if (curr_player == PLAYER_VAN_HELSING){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
 
+					chase(dra_last_seen,hv);
 
-			}
+					}
+					else{
+						searching_move(hv,dra_last_seen,4);
+						return;
+
+					}
+				}else if (curr_player == PLAYER_MINA_HARKER){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv))){
+
+					chase(dra_last_seen,hv);
+
+					}
+					else{
+						searching_move(hv,dra_last_seen,4);
+						return;
+
+					}
+				}	
+//		
+	
 		}
 
 
-
+	}
 	
 
 }
@@ -146,7 +141,7 @@ int distance (location_t src, location_t dest,HunterView hv){
 	return number_of_hops;
 }
 
-void searching_move(HunterView hv,location_t anker_point){
+void searching_move(HunterView hv,location_t anker_point,int distance){
 	time_t t1;
 	srand((unsigned) time(&t1));
 	enum player curr_player = hv_get_player(hv);
@@ -156,7 +151,7 @@ void searching_move(HunterView hv,location_t anker_point){
 	size_t n_withids_and_not_intrial;
 	location_t* H_dests = hv_get_dests (hv, &n_total_dests,true, true, true); 
 	location_t* dests_not_in_trail = select_dests_not_in_trail(H_dests,&n_not_in_trail_dests,n_total_dests,hv);
-	location_t* dests_in_dis = select_dests_less_than_distance(H_dests,&n_within_dis,anker_point,4,n_total_dests,hv);
+	location_t* dests_in_dis = select_dests_less_than_distance(H_dests,&n_within_dis,anker_point,distance,n_total_dests,hv);
 	location_t* dests_withids_and_not_intrial = find_common_locations 	   (dests_in_dis,dests_not_in_trail,n_within_dis,n_not_in_trail_dests,&n_withids_and_not_intrial);
 	if (n_withids_and_not_intrial!=0){
 		int index = rand()%n_withids_and_not_intrial;
@@ -252,7 +247,38 @@ location_t* find_common_locations (location_t *dests_1,location_t *dests_2,int s
 	return (counter==0)? NULL:selected_locations;
 }
 
+void chase(location_t dra_last_seen,HunterView hv){
+	enum player curr_player = hv_get_player(hv);
+	location_t path[100];				
+	int number_of_hops = findPath_hunter(hv, hv_get_location(hv,curr_player), dra_last_seen, path);
+	for (int j = 0; j<number_of_hops;j++){
+		printf("%s->",location_get_abbrev(path[j]));	
+	}
+	size_t n_locations;		
+	location_t* H_dests = hv_get_dests (hv, &n_locations,true, true, true);
+	int counter = 0;
+	for(int i = 0;i<number_of_hops;i++){
+		for(int j = 0; j<n_locations;j++){
+			if(H_dests[j] == path[i]){
+				counter = i;
+			}
+		}
+	}
+				
+	if (hv_get_location(hv,curr_player) != dra_last_seen){
+		register_best_play (location_get_abbrev(path[counter]), "");
+	return;
+				
+	}else{
+		register_best_play (location_get_abbrev(path[0]), "");
+		return;
+				
 
+
+	}
+
+
+}
 
 
 
@@ -400,7 +426,53 @@ location_t* find_common_locations (location_t *dests_1,location_t *dests_2,int s
 	}*/
 
 
+/*if(curr_player == PLAYER_LORD_GODALMING) {
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
 
+					chase(dra_last_seen,hv);
+
+					}
+					else{
+
+						searching_move(hv,dra_last_seen);
+						return;
+
+					}
+				}else if (curr_player == PLAYER_DR_SEWARD){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
+
+					chase(dra_last_seen,hv);
+
+					}
+					else{
+						searching_move(hv,dra_last_seen);
+						return;
+
+					}
+				}else if (curr_player == PLAYER_VAN_HELSING){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_LORD_GODALMING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_MINA_HARKER),dra_last_seen,hv))){
+
+					chase(dra_last_seen,hv);
+
+					}
+					else{
+						searching_move(hv,dra_last_seen);
+						return;
+
+					}
+				}else if (curr_player == PLAYER_MINA_HARKER){
+					if ( (distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_VAN_HELSING),dra_last_seen,hv))||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_DR_SEWARD),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv) )||(distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv,PLAYER_VAN_HELSING),dra_last_seen,hv) && distance(hv_get_location(hv,curr_player),dra_last_seen,hv)< distance(hv_get_location(hv, PLAYER_LORD_GODALMING),dra_last_seen,hv))){
+
+					chase(dra_last_seen,hv);
+
+					}
+					else{
+						searching_move(hv,dra_last_seen);
+						return;
+
+					}
+				}	
+//		
 
 
 
