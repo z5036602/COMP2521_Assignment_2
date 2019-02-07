@@ -215,100 +215,25 @@ int main(void)
 	{
 		puts("Samples from Game #0");
 		char *trail =
-			"GMN.... SPL.... HAM.... MPA.... DZU.V.. "
-			"GLV.... SLO.... HNS.... MST....";
+			"GMN.... SPL.... HAM.... MPA.... DMA.V.. "
+			"GLV.... SLO.... HNS.... MST.... DGR.V.. "
+			"GLV.... SLO.... HNS.... MST.... DAL.V.. "
+			"GLV.... SLO.... HNS.... MST.... DBA.V.. "
+			"GLV.... SLO.... HNS.... MST.... DTO.V.. "
+			"GLV.... SLO.... HNS.... MST.... DCF.V.. "
+			"GLV.... SLO.... HNS.... MST.... DGE.T.. "
+			"GLV.... SLO.... HNS.... MST.... DZU.T.. " 
+			"GLV.... SLO.... HNS.... MST.... DMI.T.. "
+			"GLV.... SLO.... HNS.... MST.... DMR.T.. "
+			"GLV.... SLO.... HNS.... MST.... DMS.T..";
 		player_message messages[] = {"", "", "", "", "", "", "", "", ""};
 		DraculaView dv = dv_new(trail, messages);
-
-		assert(dv_get_round(dv) == 1);
-		assert(dv_get_score(dv) == GAME_START_SCORE - dv_get_round(dv));
-		for (int i = 0; i < NUM_PLAYERS; i++)
-		{
-			if (i == PLAYER_DRACULA)
-				assert(dv_get_health(dv, i) == GAME_START_BLOOD_POINTS);
-			else
-				assert(dv_get_health(dv, i) == GAME_START_HUNTER_LIFE_POINTS);
+		size_t n_locations;
+		location_t *array = dv_get_dests (dv, &n_locations, true, true);
+		for (int i=0;i<n_locations;i++){
+			//printf("stuff in the array %s\n ",location_get_name(array[i]));
+//
 		}
-
-		assert(dv_get_location(dv, PLAYER_LORD_GODALMING) == LIVERPOOL);
-		assert(dv_get_location(dv, PLAYER_DR_SEWARD) == LONDON);
-		assert(dv_get_location(dv, PLAYER_VAN_HELSING) == NORTH_SEA);
-		assert(dv_get_location(dv, PLAYER_MINA_HARKER) == STRASBOURG);
-		assert(dv_get_location(dv, PLAYER_DRACULA) == ZURICH);
-
-		location_t start, end;
-		dv_get_player_move(dv, PLAYER_LORD_GODALMING, &start, &end);
-		assert(start == MANCHESTER && end == LIVERPOOL);
-		dv_get_player_move(dv, PLAYER_DR_SEWARD, &start, &end);
-		assert(start == PLYMOUTH && end == LONDON);
-		dv_get_player_move(dv, PLAYER_VAN_HELSING, &start, &end);
-		assert(start == AMSTERDAM && end == NORTH_SEA);
-		dv_get_player_move(dv, PLAYER_MINA_HARKER, &start, &end);
-		assert(start == PARIS && end == STRASBOURG);
-		dv_get_player_move(dv, PLAYER_DRACULA, &start, &end);
-		assert(start == UNKNOWN_LOCATION && end == ZURICH);
-
-		int n_traps, n_vamps;
-		dv_get_locale_info(dv, ZURICH, &n_traps, &n_vamps);
-		assert(n_traps == 0 && n_vamps == 1);
-
-		location_t history[TRAIL_SIZE];
-
-		dv_get_trail(dv, PLAYER_LORD_GODALMING, history);
-		assert(history[0] == LIVERPOOL);
-		assert(history[1] == MANCHESTER);
-		assert(history[2] == UNKNOWN_LOCATION);
-
-		dv_get_trail(dv, PLAYER_DR_SEWARD, history);
-		assert(history[0] == LONDON);
-		assert(history[1] == PLYMOUTH);
-		assert(history[2] == UNKNOWN_LOCATION);
-
-		dv_get_trail(dv, PLAYER_VAN_HELSING, history);
-		assert(history[0] == NORTH_SEA);
-		assert(history[1] == AMSTERDAM);
-		assert(history[2] == UNKNOWN_LOCATION);
-
-		dv_get_trail(dv, PLAYER_MINA_HARKER, history);
-		assert(history[0] == STRASBOURG);
-		assert(history[1] == PARIS);
-		assert(history[2] == UNKNOWN_LOCATION);
-
-		dv_get_trail(dv, PLAYER_DRACULA, history);
-		assert(history[0] == ZURICH);
-		assert(history[2] == UNKNOWN_LOCATION);
-
-		size_t n_edges;
-		location_t *edges;
-		bool seen[NUM_MAP_LOCATIONS];
-
-		edges = dv_get_dests_player(dv, &n_edges, PLAYER_LORD_GODALMING, true, false, false);
-		for (size_t i = 0; i < NUM_MAP_LOCATIONS; i++)
-			seen[i] = false;
-		for (size_t i = 0; i < n_edges; i++)
-			seen[edges[i]] = true;
-		assert(n_edges == 3);
-		assert(seen[LIVERPOOL]);
-		assert(seen[MANCHESTER]);
-		assert(seen[SWANSEA]);
-		free(edges);
-
-		edges = dv_get_dests_player(dv, &n_edges, PLAYER_DRACULA, true, false, true);
-		//free(edges);
-		for (size_t i = 0; i < NUM_MAP_LOCATIONS; i++)
-			seen[i] = false;
-		for (size_t i = 0; i < n_edges; i++)
-			seen[edges[i]] = true;
-		assert(n_edges == 6);
-		assert(seen[ZURICH]);
-		assert(seen[GENEVA]);
-		assert(seen[MARSEILLES]);
-		assert(seen[MILAN]);
-		assert(seen[MUNICH]);
-		assert(seen[STRASBOURG]);
-		free(edges);
-		puts("passed");
-		dv_drop(dv);
 	} while (0);
 
 	do

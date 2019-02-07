@@ -5,7 +5,7 @@
 // 2014-07-01	v1.0	Team Dracula <cs2521@cse.unsw.edu.au>
 // 2017-12-01	v1.1	Team Dracula <cs2521@cse.unsw.edu.au>
 // 2018-12-31	v2.0	Team Dracula <cs2521@cse.unsw.edu.au>
-//Zhengyue LIU Rudy
+
 #include <assert.h>
 #include <err.h>
 #include <stdbool.h>
@@ -19,11 +19,13 @@
 #include "map.h" 
 
 typedef struct hunter_view {
-	GameView gv;                             //gameview ADT parent class
-	char *real_past_plays;				     //record the real past playstring(a string which turns TBHI,CD to their real loaction		        
-	int real_location_array[TRAIL_SIZE];     //save real loction from double back and hide;
-	location_t Dracula_real_curr_location; 
-	player_message *messages;	
+
+	GameView gv;
+	char *real_past_plays;
+	int Dracula_real_curr_location;
+	int real_location_array[TRAIL_SIZE];
+	player_message *messages;
+	
 } hunter_view;
 
 static void original_string_to_real (char* string);
@@ -39,15 +41,12 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 	if (new == NULL) err (EX_OSERR, "couldn't allocate HunterView");
 
 	assert (new != NULL);
-
 	//initial struct and turn past plays to real locations;
 	new->real_past_plays = strdup(past_plays);
 	original_string_to_real(new->real_past_plays);
-	new->messages =messages;
+
 	new->gv = gv_new (past_plays, messages);
 	assert (new->gv != NULL);
-
-
 	//initial and create hunter view real location; in order to save real loction from double back and hide;
     int m = 0;
 	  		while (m < TRAIL_SIZE) {
@@ -57,11 +56,13 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 	
 	//deal with real past plays;
 	unsigned int k = 0;
-	while(k < strlen(new->real_past_plays)){	    																		
-		if (new->real_past_plays[k] == 'D'){					//when player is dracula;
+	while(k < strlen(new->real_past_plays)){
+	    //when player is dracula;
+		if (new->real_past_plays[k] == 'D'){
 			location_t id = abbrev_string_to_location(new->real_past_plays[k+1],new->real_past_plays[k+2]);
+			// when current location is valid;
 			if(valid_location_p(id) == true){
-				new->Dracula_real_curr_location = id;     		// if the location is valid actually valid , the dracula db to a valid location
+				new->Dracula_real_curr_location = id;     // if the location is valid actually valid , the dracula db to a valid location
 			}else{
 				new->Dracula_real_curr_location=gv_get_location (new->gv, PLAYER_DRACULA);
 			}
@@ -71,14 +72,25 @@ hunter_view *hv_new (char *past_plays, player_message messages[])
 		k+=8;
        
 	}
+	// copy the message;
+	round_t curr_turn = gv_get_round (new->gv) * 5;
+	unsigned int curr_turns = (unsigned int) curr_turn;
+    
+    new->messages = malloc(curr_turns * sizeof(player_message));
+	
+	size_t j = 0;
+	for (size_t i = PLAYER_DRACULA; i < curr_turns; i += NUM_PLAYERS)
+	{
+		strcpy(new->messages[j], messages[i]);
+		j++;
+	}
 	return new;
 }
 
 void hv_drop (hunter_view *hv)
 {
-
+    free (hv->messages);
 	gv_drop (hv->gv);
-	free(hv->real_past_plays);
 	free (hv);
 }
 
@@ -214,8 +226,6 @@ location_t *hv_get_dests_player (
     }
 }
 
-
-///////////////////////////////////////////////////////helper functions//////////////////////////////////////////////////////////
 static void original_string_to_real (char* string){
 	unsigned int i=73;
 	while(i < strlen(string)) {

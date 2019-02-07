@@ -130,12 +130,12 @@ dracula_view *dv_new(char *past_plays, player_message messages[])
 	free(s);
 	free(start);              
 	new->messages = malloc((new->num_of_turns / NUM_PLAYERS) * sizeof(player_message));
-	size_t j = 0;
+	/*size_t j = 0;
 	for (size_t i = PLAYER_DRACULA; i < new->num_of_turns; i += NUM_PLAYERS)
 	{
 		strcpy(new->messages[j], messages[i]);
 		j++;
-	}
+	}*/
 	return new;
 }
 
@@ -519,32 +519,72 @@ static location_t *location_dracula_can_move(
 	for (int i = 0; i < NUM_MAP_LOCATIONS; i++)
 		visited[i] = -1;
 	visited[from] = 1;
-	DLListInsert(connection_list, from);
+	//DLListInsert(connection_list, from);
 	// dracula can't go to ST_JOSEPH_AND_ST_MARYS
 	visited[ST_JOSEPH_AND_ST_MARYS] = 1;
 	//dramula move
 	// can't go a location in his most recent 5 moves
 	location_t trail[TRAIL_SIZE];
 	gv_get_history(dv->gv, PLAYER_DRACULA, trail);
-
-
-	// it cannot be a location in his most recent 5 moves
+	
 	DLListNode *curr = dv->dracula_real_path->last;
 	for (size_t i = 0; i < TRAIL_SIZE - 1; i++)
 	{
 		if (i < dv->dracula_real_path->nitems)
 		{
-			visited[curr->location] = 1;
-			curr = curr->prev;
+		visited[curr->location] = 1;
+		curr = curr->prev;
 		}
 	}
+	//int flag1 = 0;
+	//int flag2 = 0;
+	//int flag3 = 0;
+	/*for (int counter = 0;counter<TRAIL_SIZE;counter++){
+		if (DOUBLE_BACK_1<=trail[counter] && trail[counter]<=DOUBLE_BACK_5 ){
+			flag1=1;
+		}
+		if (trail[counter]==HIDE){
 
-	/* 
-		-- not finished -- 
-		if he makes a DOUBLE_BACK move, the Hunters know...
-		 - that his most recent move is a DOUBLE_BACK
-		 - the position in the trail of the location he has doubled back to
-		*/
+			flag2=1;
+		}
+		
+	}*/
+
+	// it cannot be a location in his most recent 5 moves
+	/*if (flag1==1 && flag2==0){
+		visited[from] = 1;
+		DLListInsert(connection_list, from);
+		DLListNode *curr = dv->dracula_real_path->last;
+		for (size_t i = 0; i < TRAIL_SIZE - 1; i++)
+		{
+			if (i < dv->dracula_real_path->nitems)
+			{
+			visited[curr->location] = 1;
+			curr = curr->prev;
+			}
+		}
+	}else if (flag1==0 && flag2==1){
+		visited[from] = 1;
+		DLListInsert(connection_list, from);
+
+
+	}else if (flag1==1 && flag2==1){
+		visited[from] = 1;
+		DLListNode *curr = dv->dracula_real_path->last;
+		for (size_t i = 0; i < TRAIL_SIZE - 1; i++)
+		{
+			if (i < dv->dracula_real_path->nitems)
+			{
+			visited[curr->location] = 1;
+			curr = curr->prev;
+			}
+		}
+
+	}else if (flag1==0 && flag2==0){
+		visited[from] = 1;
+		DLListInsert(connection_list, from);
+
+	}*/
 
 	for (map_adj *curr_1 = dv->world_map->connections[from]; curr_1 != NULL; curr_1 = curr_1->next)
 	{
@@ -554,21 +594,69 @@ static location_t *location_dracula_can_move(
 			DLListInsert(connection_list, curr_1->v);
 		}
 	}
+	int flag1 = 0;
+	int flag2 = 0;
+	for (int counter = 0;counter<TRAIL_SIZE;counter++){
+		if (DOUBLE_BACK_1<=trail[counter] && trail[counter]<=DOUBLE_BACK_5 ){
+			flag1=1;
+		}
+		if (trail[counter]==HIDE){
+
+			flag2=1;
+		}
+		
+	}
+	if (flag1==0){
+		//DLListInsert(connection_list, DOUBLE_BACK_1);
+		location_t real_path_trail[TRAIL_SIZE];
+		dv_get_trail(dv,PLAYER_DRACULA,real_path_trail);
+		int visited_for_doubleback[NUM_MAP_LOCATIONS];
+		visited_for_doubleback[ST_JOSEPH_AND_ST_MARYS] = 1;
+		for (int i = 0; i < NUM_MAP_LOCATIONS; i++)
+			visited_for_doubleback[i] = -1;
+		visited_for_doubleback[from] = 1;	
+		for (int counter_3=0; counter_3< TRAIL_SIZE;counter_3++){
+			printf("stuff %s\n ",location_get_name(real_path_trail[counter_3]));
+		}
+		for (int counter_1=0; counter_1< TRAIL_SIZE-1;counter_1++){
+			if (real_path_trail[counter_1]==from){
+				DLListInsert(connection_list, counter_1+DOUBLE_BACK_1);
+			}else {
+				for (map_adj *curr_2 = dv->world_map->connections[from]; curr_2 != NULL; curr_2 = curr_2->next){
+					if(real_path_trail[counter_1]==curr_2->v && ((road && curr_2->type == ROAD && visited_for_doubleback[curr_2->v] == -1) || 						(sea && curr_2->type == BOAT && visited_for_doubleback[curr_2->v] == -1))){
+						DLListInsert(connection_list, counter_1+DOUBLE_BACK_1);
+						visited_for_doubleback[curr_2->v] = 1;
+					}
+				}
+			}
+		}			
+
+	}	
+	if (flag2==0){
+		DLListInsert(connection_list, HIDE);
+	}
+
+	printf("%d\n",*n_locations);
 
 	*n_locations = connection_list->nitems;
+	//printf("number_of_locationss %d\n",*n_locations);
 	if (*n_locations == 0)
-	{
+	{ 	assert(1==2);
 		DLListInsert(connection_list, TELEPORT);
 		(*n_locations)++;
 	}
 
 	location_t *result = malloc(*n_locations * sizeof(location_t));
-	curr = connection_list->first;
+	DLListNode *curr_connection_assignment = connection_list->first;
 	for (size_t i = 0; i < *n_locations; i++)
 	{
-		result[i] = curr->location;
-		curr = curr->next;
+		result[i] = curr_connection_assignment->location;
+		curr_connection_assignment = curr_connection_assignment->next;
 	}
+	for (int i=0;i<*n_locations;i++){
+			printf("stuff in the array %s\n ",location_get_name(result[i]));
+
+		}
 	freeDLList(connection_list);      
 	return result;
 }

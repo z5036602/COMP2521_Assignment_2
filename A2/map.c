@@ -5,7 +5,7 @@
 //
 // 2017-11-30 v1.0 Team Dracula <cs2521@cse.unsw.edu.au>
 // 2018-12-31 v2.0 Team Dracula <cs2521@cse.unsw.edu.au>
-
+//Zhengyue LIU z5036602
 #include <assert.h>
 #include <err.h>
 #include <stdbool.h>
@@ -174,9 +174,8 @@ location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool
 	visted[src] = true;
 	size_t counter = 1;
 
-	while (curr != NULL)
+	while (curr != NULL)									// no rail connection now.
 	{
-		//if (curr->v == end ){
 		if (road == true && curr->type == ROAD && visted[curr->v] == false)
 		{
 			adj_locations_tmp[counter] = curr->v;
@@ -197,7 +196,6 @@ location_t *check_for_connections_0_round(Map g, location_t src, bool road, bool
 	{
 		adj_locations[i] = adj_locations_tmp[i];
 	}
-	//adj_locations[i]= src;
 	*n_locations = counter;
 	return adj_locations;
 }
@@ -211,9 +209,8 @@ location_t *check_for_connections_1_round(Map g, location_t src, bool road, bool
 	visted[src] = true;
 	size_t counter = 1;
 
-	while (curr != NULL)
+	while (curr != NULL)										// find the location connected with src by Rail(first hop)
 	{
-		//if (curr->v == end ){
 		if (road == true && curr->type == ROAD && visted[curr->v] == false)
 		{
 			adj_locations_tmp[counter] = curr->v;
@@ -240,7 +237,6 @@ location_t *check_for_connections_1_round(Map g, location_t src, bool road, bool
 	{
 		adj_locations[i] = adj_locations_tmp[i];
 	}
-	//adj_locations[i]= src;
 	*n_locations = counter;
 	return adj_locations;
 }
@@ -256,7 +252,6 @@ location_t *check_for_connections_2_round(Map g, location_t src, bool road, bool
 
 	while (curr != NULL)
 	{
-		//if (curr->v == end ){
 		if (road == true && curr->type == ROAD && visted[curr->v] == false)
 		{
 			adj_locations_tmp[counter] = curr->v;
@@ -271,7 +266,7 @@ location_t *check_for_connections_2_round(Map g, location_t src, bool road, bool
 				visted[curr->v] = true;
 				counter++;
 			}
-			map_adj *curr_2 = g->connections[curr->v];
+			map_adj *curr_2 = g->connections[curr->v];				// find the location connected with curr by Rail(second hop)
 			while (curr_2 != NULL)
 			{
 				if (curr_2->type == RAIL)
@@ -300,7 +295,6 @@ location_t *check_for_connections_2_round(Map g, location_t src, bool road, bool
 	{
 		adj_locations[i] = adj_locations_tmp[i];
 	}
-	//adj_locations[i]= src;
 	*n_locations = counter;
 	return adj_locations;
 }
@@ -315,7 +309,6 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 	size_t counter = 1;
 	while (curr != NULL)
 	{
-		//if (curr->v == end ){
 		if (road == true && curr->type == ROAD && visted[curr->v] == false)
 		{
 			adj_locations_tmp[counter] = curr->v;
@@ -331,7 +324,7 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 				counter++;
 			}
 			map_adj *curr_2 = g->connections[curr->v];
-			while (curr_2 != NULL)
+			while (curr_2 != NULL)								// find the location connected with curr by Rail(second hop)
 			{
 				if (curr_2->type == RAIL)
 				{
@@ -344,7 +337,7 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 					map_adj *curr_3 = g->connections[curr_2->v];
 					while (curr_3 != NULL)
 					{
-						if (curr_3->type == RAIL)
+						if (curr_3->type == RAIL)				// find the location connected with curr_2 by Rail(third hop)
 						{
 							if (visted[curr_3->v] == false)
 							{
@@ -373,14 +366,12 @@ location_t *check_for_connections_3_round(Map g, location_t src, bool road, bool
 	{
 		adj_locations[i] = adj_locations_tmp[i];
 	}
-	//adj_locations[i]= src;
 	*n_locations = counter;
 	return adj_locations;
 }
 location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool sea, size_t *n_locations)
 {
 	assert(g != NULL);
-	//assert(1==2);
 	map_adj *curr = g->connections[src];
 	location_t adj_locations_tmp[NUM_MAP_LOCATIONS];
 	adj_locations_tmp[0] = src;
@@ -391,13 +382,13 @@ location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool
 
 	while (curr != NULL)
 	{
-		if (curr->type == ROAD && curr->v != ST_JOSEPH_AND_ST_MARYS)
+		if (curr->type == ROAD && curr->v != ST_JOSEPH_AND_ST_MARYS)    //if we find a location connected by road, and is not hospital
 		{
 			flag = 1;
 		}
-		if (curr->type == BOAT && curr->v != ST_JOSEPH_AND_ST_MARYS)
+		if (curr->type == BOAT && curr->v != ST_JOSEPH_AND_ST_MARYS)	//if we find a location connected by boat, and is not hospital
 		{
-			flag = 1;
+			flag = 1;													
 		}
 
 		if (road == true && curr->type == ROAD && curr->v != ST_JOSEPH_AND_ST_MARYS && visted[curr->v] == false)
@@ -414,18 +405,17 @@ location_t *check_for_connections_dracula(Map g, location_t src, bool road, bool
 		}
 		curr = curr->next;
 	}
-	if (flag == 0)
+	if (flag == 0)											// no other way to go, only teleport available
 	{
 		adj_locations_tmp[1] = TELEPORT;
 		counter++;
 	}
-	location_t *adj_locations = malloc((counter) * sizeof(location_t)); /// need to free !!!
+	location_t *adj_locations = malloc((counter) * sizeof(location_t)); 
 	size_t i = 0;
 	for (i = 0; i < counter; i++)
 	{
 		adj_locations[i] = adj_locations_tmp[i];
 	}
-	//adj_locations[i]= src;
 	*n_locations = counter;
 	return adj_locations;
 }
