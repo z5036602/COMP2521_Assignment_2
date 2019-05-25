@@ -1,0 +1,2752 @@
+Session: 19T0
+Assignment: assign1  Submission ID: 5036602
+
+
+Your submission has been marked. + /usr/bin/less -m /import/adams/2/z5036602/cs2521.assign1.mrk
+
+!!section banner
+#######   ###    #####   #####   #####    ###    #####
+#        #   #  #     # #     # #     #  #   #  #     #
+#       # #   #       # #       #       # #   #       #
+ #####  #  #  #  #####  ######  ######  #  #  #  #####
+      # #   # #       # #     # #     # #   # # #
+#     #  #   #  #     # #     # #     #  #   #  #
+ #####    ###    #####   #####   #####    ###   #######
+
+5036602 Liu, Zhengyue                           3731/4 ELECE1
+
+Submissions:-
+
+S 0     Tue Dec 11 13:43:19 2018        5036602 wed10-sitar assign1 -3:-10
+S 0+    Tue Dec 11 13:43:19 2018        5036602 wed10-sitar assign1 -5:-10
+S 1     Sun Dec 16 16:34:05 2018        5036602 wed10-sitar assign1 0:-7
+S 2     Sun Dec 16 17:11:29 2018        5036602 wed10-sitar assign1 0:-6
+S 3     Sun Dec 16 19:35:34 2018        5036602 wed10-sitar assign1 0:-4
+S 4     Sun Dec 16 21:42:32 2018        5036602 wed10-sitar assign1 0:-2
+
+Mon Jan 28 21:06:27 2019                ## oud02.orchestra.cse.unsw.EDU.AU ##
+!!section listing
+-rw-r----- z5036602/z5036602 44924 2018-12-16 19:35 textbuffer.c
+-rw-r--r-- z5036602/z5036602 22992 2018-12-16 15:17 test_textbuffer.c
+dos2unix: converting file textbuffer.c to Unix format ...
+
+===============================================================================
+-rw-r----- 1 cs2521 cs2521 44924 Jan 28 21:06 textbuffer.c
+===============================================================================
+
+     1  ////////////////////////////////////////////////////////////////////////
+     2  // COMP2521 19T0 ... assignment 1: Textbuffer ADT
+     3  //
+     4  // 2018-1-12    Zhengyue LIU <z5036602@unsw.edu.au>
+     5
+     6  #include "textbuffer.h"
+     7  #include "assert.h"
+     8  #include "stdlib.h"
+     9  #include "stdio.h"
+    10
+    11
+    12  #define TRUE  1
+    13  #define FALSE 0
+    14
+    15  typedef struct lines *line;
+    16  typedef char *Char;
+    17  typedef struct history_textbuffer *history_Textbuffer;
+    18
+    19
+    20  typedef struct lines{                                                                         // the struct for actual lines of text
+    21          char* my_text;
+    22          struct lines *next;                                                                    // use double linked list is helpful for list manipulation
+    23          struct lines *prev;                                                                    // no need to track the prev
+    24  }lines;
+    25  typedef struct history_textbuffer{                                                           // the struct for storing the textbuffer imformation
+    26          line head;                                                                              // for the function of undo/redo
+    27          size_t n;
+    28  }history_textbuffer;
+    29
+    30  struct textbuffer {                                                                            // the textbuffer struct
+    31          line head;
+    32          size_t n;
+    33          struct textbuffer_stacks *history;
+    34          struct textbuffer_stacks *undo_history;
+    35  };
+    36
+    37  typedef struct history_textbuffer_list_node{                                            // linked_list_node for storing the each history_textbuffer
+    38          history_Textbuffer tb;
+    39          struct history_textbuffer_list_node *next;
+    40  }history_textbuffer_list_node;
+    41
+    42  typedef struct textbuffer_stacks{                                                            // a stack to store the history_textbuffer linked_list
+    43          history_textbuffer_list_node *top;                                                   // since redo/undo process is similar to stack push/pop LIFO
+    44          size_t n_items;
+    45  }textbuffer_stacks;
+    46
+    47
+    48  ///////////////Helper functions//////////////////////////////////////////////////////////////////////////////////////////
+    49
+    50
+    51  static char *strdup_my_one (const char *s) {                                            // my own strdup function wrote for practise and debug purpose
+    52      char *d = malloc (strlen (s) + 1);                                                      // Space for length plus nul
+    53      if (d == NULL) return NULL;                                                             // No memory
+    54      strcpy (d,s);                                                                           // Copy the characters
+    55      return d;                                                                               // Return the new string
+    56  }
+    57
+    58
+    59
+    60  static void history_Textbuffer_drop(history_Textbuffer tb){                     // drop the history textbuffer; seperate the complicated
+    61          line curr = tb ->head;                                                                // free/drop process into sub-process.
+    62          while (curr !=NULL){
+    63                  line tmp = curr->next;
+    64                  free(curr->my_text);
+    65                  free(curr);
+    66                  curr = tmp;
+    67          }
+    68          free(tb);
+    69  }
+    70
+    71  static history_Textbuffer textbuffer_stacks_pop(textbuffer_stacks *s){  //pop the history_textbuffer from the history textbuffer stack;
+    72          assert (s != NULL);
+    73          assert (s->top != NULL);
+    74          history_textbuffer_list_node *top = s->top;
+    75          history_Textbuffer tb = top -> tb;
+    76          s->top = top->next;
+    77                                                                                                     // note here, since top points to a history textbuffer which also
+    78          free (top);                                                                              // contains a string linked list, so we need to free the inner layer
+    79          s->n_items--;                                                                           // free the node and the string contained by it.
+    80          return tb;                                                                               // then the free the top pointer; thats why seperate the struct drop
+    81  }                                                                                                 // process is important and help decrease the difficulty.
+    82
+    83
+    84
+    85  static size_t textbuffer_stacks_getsize(textbuffer_stacks *s){                  // get the size of the history textbuffer stack
+    86          assert (s != NULL);
+    87          return s->n_items;
+    88
+    89  }
+    90
+    91
+    92  static void textbuffer_stacks_push(textbuffer_stacks *s, history_Textbuffer tb){
+    93          assert (s != NULL);
+    94          history_textbuffer_list_node *new = malloc (sizeof (struct history_textbuffer_list_node));
+    95          if (new == NULL) abort();
+    96          (*new) = (history_textbuffer_list_node){ .tb = tb, .next = s->top };    // malloc a new node and assign the value
+    97          size_t operations = textbuffer_stacks_getsize(s);                                    // get how many operation existed in the stack
+    98          if(operations == 10){                                                                   // if we have 10 operations we need to clear the oldest or first
+    99                  history_textbuffer_list_node* tmp = NULL;                                     // element in the stack, and push the element after to make the
+   100                  history_textbuffer_list_node* curr = s->top;                                 // stack rotate, since the limit for undo and redo are 10
+   101                  while (curr->next !=NULL){                                                      // operations;
+   102                          tmp = curr;
+   103                          curr = curr ->next;
+   104                  }
+   105                  history_Textbuffer_drop(curr->tb);                                            // free the first element in the stack.
+   106                  free(curr);
+   107                  tmp->next = NULL;
+   108                  s->top = new;                                                                   // top to next element
+   109          }else {
+   110                  s->top = new;                                                                   // if the operation havent got up to ten
+   111                  s->n_items++;                                                                   // just shift the top to the new added element and addup
+   112          }                                                                                         // number of items
+   113  }
+   114
+   115
+   116
+   117  static void textbuffer_stacks_drop(struct textbuffer_stacks *s){                // drop the stack inside of textbuffer struct
+   118          assert (s != NULL);
+   119          if (s->top!=NULL){
+   120                  struct history_textbuffer_list_node *tmp =NULL;                             // iterate through the list inside of the struct
+   121                  struct history_textbuffer_list_node *curr = s->top;
+   122                  while (curr != NULL) {
+   123                          tmp = curr->next;
+   124                          history_Textbuffer_drop (curr->tb);                                   // free the elements inside of the node
+   125                          free(curr);
+   126                          curr = tmp;
+   127                  }
+   128          }
+   129
+   130          free (s);                                                                                // free the node pointer
+   131
+   132  }
+   133  void textbuffer_drop (Textbuffer tb) {                                                       // drop the textbuffer
+   134          if (tb == NULL){                                                                        // the input is null we do nothing, just in case
+   135                  return;                                                                          // drop null break the program
+   136          }
+   137          line curr = tb ->head;                                                                 // iterate through the list
+   138          while (curr !=NULL){
+   139                  line tmp = curr->next;                                                         // store next pointer
+   140                  free(curr->my_text);                                                           // free the string in the node
+   141                  free(curr);                                                                     // free the pointer to the node
+   142                  curr = tmp;                                                                      // restore the position
+   143          }
+   144          textbuffer_stacks_drop(tb->history);                                                 // drop the history stack
+   145          textbuffer_stacks_drop(tb->undo_history);                                            // drop the undo_history stack
+   146          free(tb);                                                                                // free the tb
+   147  }
+   148
+   149  static textbuffer_stacks* textbuffer_stacks_new(void){                                  // create an empty stack
+   150          textbuffer_stacks* new = calloc (1,sizeof(textbuffer_stacks));
+   151          if (new == NULL) abort();
+   152          return new;
+   153  }
+   154
+   155  static void line_append (line head, line node){                                             // append a new node into the end of the existing list
+   156          line curr = head;
+   157          while(curr->next !=NULL){
+   158                  curr = curr->next;
+   159          }
+   160          curr->next=node;
+   161          node->prev=curr;
+   162  }
+   163
+   164  static line list_copy (line head){                                                      // duplicate the existing list of lines
+   165          line new_head = malloc(sizeof(struct lines));
+   166          new_head->my_text = strdup_my_one(head->my_text);
+   167          new_head->next = NULL;
+   168          new_head->prev=NULL;
+   169          line curr = head->next;
+   170          while(curr !=NULL){
+   171                  line new_node = malloc(sizeof(struct lines));
+   172                  new_node->my_text = strdup(curr->my_text);
+   173                  new_node->next = NULL;
+   174                  new_node->prev=NULL;
+   175                  line_append(new_head,new_node);
+   176                  curr = curr->next;
+   177          }
+   178          return new_head;
+   179  }
+   180
+   181
+   182
+   183
+   184  static bool Naive_search (char* s,char* pattern){                                       // search for the patter in a string, if found return true
+   185          bool found = FALSE;
+   186          size_t  n = strlen(s);
+   187          size_t m = strlen(pattern);
+   188          if(m>n){
+   189                  return FALSE;
+   190
+   191          }
+   192          size_t i = 0;
+   193          size_t j = 0;                                                                           // outter loop iterate through the string,
+   194          for (i = 0; i< n-m+1;i++){
+   195                  for (j = 0;j <m;j++){
+   196                          if (s[i+j]!=pattern[j] ){                                              // inner loop help check the pattern bit by bit
+   197                                  break;                                                           // if all charater are matching consecutively
+   198                          }                                                                         // j will count to m
+   199                  }
+   200                  if (j==m){                                                                       // if j count to the m the pattern matched, pattern existed.
+   201                          found = TRUE;
+   202                  }
+   203
+   204          }
+   205          return found;                                                                           // return the bool output
+   206  }
+   207
+   208
+   209  static char*replace_one_str(char*s , int i, int j,char*replace){                //helper function for replacing, first i wrote a function
+   210          int diff = j-i;                                                                         // replace the substring given its position from i to j in the
+   211          size_t size = strlen(s)-diff+strlen(replace);                                       // original string
+   212          char* array = (char*)malloc(size+1);                                                 // malloc a space to contain the new string after replacement.
+   213          int k = 0;
+   214          int c = 0;
+   215          int q = 0;
+   216          for (k = 0; k<i;k++){                                                                  // sperate the string to three pieces and assign them to the new
+   217                  array[k] = s[k];  // p up to i                                                // malloced space bit by bit;
+   218          }
+   219          for (c = 0;c < strlen(replace);c++){                                                 // assign the replacing string
+   220                  array[k]= replace[c];
+   221                  k++;
+   222          }
+   223          for (q = j+1; q< strlen(s);q++){
+   224                  array[k]=s[q];  // p start from j+1;
+   225                  k++;
+   226          }
+   227          array[k] = '\0';
+   228          return array;                                                                           // return the replaced string
+   229  }
+   230  static int* search_for_replace (char *str, char*substr ,int * arr){             // search for the postion of pattern. similar algorithm to search
+   231          int n = strlen(str);                                                                   // but now we return the two postions of the pattern i and j;
+   232          int m = strlen(substr);
+   233          int i = 0;
+   234          int j = 0;
+   235          for (i = 0; i< n-m+1;i++){
+   236                  for (j = 0;j <m;j++){
+   237
+   238                          if (str[i+j]!=substr[j] ){
+   239                                  break;
+   240                          }
+   241                  }
+   242                  if (j==m){
+   243                          arr[0] = i;                                                              // store the i and j into the array
+   244                          arr[1] = i+j-1;
+   245                          return arr;
+   246                  }
+   247
+   248          }
+   249          arr[0] = -1;                                                                            // if the function havent return and run up to here; it means
+   250          arr[1] = -1;                                                                            // the pattern is not found; we mark the output as -1 -1;
+   251          return arr;
+   252
+   253  }
+   254  static char* Naive_replace (char* s,char* pattern, char *replace){              // given the pattern and replace all of them in a string
+   255          if(strcmp(pattern, "")==0){                                                            // search "" and replace do nothing on the oringinal string
+   256                  return s;
+   257          }
+   258          bool flag = TRUE;                                                                       // FLAG for found/not found help us set a conditin to run loop
+   259          int arr[2] = {-1,-1};
+   260          int counter = 0;
+   261          char *s_1=s;                                                                            //General algo :search/replace/feedback to loop then
+   262          while (flag){                                                                           //search/replace again
+   263                  int *arr_p = search_for_replace (s, pattern , arr);                         //search the postion for replacement in an iterative manner
+   264                  if (arr_p[0] == -1 && arr_p[1] == -1){                                       //After search,if the position store array return -1 -1, it means
+   265                          flag = FALSE;                                                           //pattern not found, break the loop and return oringinal string
+   266                  }else {
+   267                          s_1 = replace_one_str(s, arr_p[0], arr_p[1] ,replace);
+   268                          counter++;
+   269                          free(s);
+   270                          s = s_1;                                                                 // this step is critial for free, since after replacement; we got
+   271                                                                                                    // a new string we need to free the old one; so we need two parameters;
+   272                  }                                                                                 // one record previous string, one for new string and free the previus
+   273                                                                                                    // string
+   274          }
+   275          return s_1;
+   276
+   277  }
+   278
+   279
+   280  static void record_operation(Textbuffer tb){                                                  // record the tb before the each operation for undo
+   281          history_Textbuffer history_tb = malloc (sizeof(struct history_textbuffer));     // and redo
+   282          if(tb->head == NULL){                                                                    // if tb is empty text
+   283                  history_tb-> head = NULL;                                                        // his tb is empty text as well
+   284          }else{
+   285                  history_tb-> head = list_copy(tb->head);                                       // copy the text inside of the tb into the history
+   286          }
+   287          history_tb->n =  tb->n;                                                                  // copy number
+   288          textbuffer_stacks_push(tb->history, history_tb);                                      // push to history stack
+   289  }
+   290  void static clear_redo_stack(Textbuffer tb1){                                                 // after a new operation, we clear the undo_history_stack
+   291          for (int i =0; i<tb1->undo_history->n_items;i++){
+   292                  history_Textbuffer history_tb = textbuffer_stacks_pop(tb1->undo_history);// pop tbs from the stack one by one
+   293                  history_Textbuffer_drop(history_tb);                                           // pop them then drop them to clear the whole stack
+   294          }
+   295  }
+   296
+   297  // The ADT constructor/////////////////////////////////////////////////////////////////////////////////////
+   298
+   299  Textbuffer textbuffer_new (const char *text){
+   300          Textbuffer my_textbuffer = malloc (sizeof(struct textbuffer));
+   301          char *string= strdup_my_one(text);
+   302          char *free_line = string;                                                                // store the string adress for free
+   303          char *found = NULL;                                                                       // because strsep will modify the value of string
+   304          char *newline = "\n";                                                                    // if we dont store it will lose the address info for free
+   305          size_t capacity = 2;
+   306          Char *ptr = calloc(capacity, sizeof(Char));
+   307          size_t i=0;
+   308          while ((found = strsep(&free_line, "\n"))!=NULL){                                     // understand how strsep work
+   309                  if (i >= capacity){                                                               // it replace the \n with '\0' and shift the pointer
+   310                          capacity = capacity *2;                                                  // to the pos after every '\0'return the address
+   311                          ptr = realloc(ptr, capacity*sizeof(Char));                             // making ptr dynamic, just in case the text having too
+   312                                                                                                      // many lines ,ptr is an heap 2d array, contains address to
+   313                  }                                                                                   // each sub string given by strsep
+   314
+   315                  ptr[i] = strdup(found);                                                          // duplicate the each substring from the pointer to the next
+   316                                                                                                      // NULL character, the reason for duplicating and storing
+   317                  ptr[i] = realloc(ptr[i],strlen(ptr[i])+2);                                     // is becasue strsep always give an extra empty string at last
+   318              strcat(ptr[i],newline);                                                             // say if a string is joshua/nliu/n it will give me three lines
+   319                  i++;                                                                             // of text with last line is empty string. The reason relates to
+   320          }                                                                                           // strsep working mechanics, so here i store all the sub string
+   321                                                                                                      // dupliated from the orginal string, and assign all elements
+   322          line head = NULL;                                                                         // except the last element which is an empty string.
+   323          size_t size_counter = 0;                                                                 // if the i=1 means text has one element, which means the
+   324                                                                                                      // textbuffer is emtpy although the "" wont be a valid input
+   325                                                                                                      // for textbuffer new, which means strsep will always return
+   326                                                                                                      // more then one element,that extra "" + the text , but here i
+   327                                                                                                      // implemented for having clear logic.
+   328          if(i > 1){                                                                                 // Also i try to cat an newline character at 317 to 318, the
+   329                  head = malloc (sizeof(*head));                                                  // reason is because its easy for textbuffer_to_str and bytes
+   330                  head->my_text = ptr[0];                                                          // count.
+   331                  size_counter = 1;
+   332                  head->next = NULL;
+                                                                                                           ^
+                                                                                               + ========= +
+                                                                                               + Beautiful +
+                                                                                               + ========= +
+   333                  head->prev = NULL;
+   334                  for (size_t j=1;j<i-1;j++){                                                      // when i greater than 1, means the text is not empty
+   335                          line node = malloc (sizeof(*node));                                     // it contains acutally lines of character, so the head
+   336                          node->my_text = ptr[j];                                                  // is not null and assign the text and pointer inside
+   337                          node->next = NULL;
+   338                          node->prev=NULL;
+   339                          line_append(head,node);
+   340                          size_counter ++;
+   341                  }
+   342          }
+   343
+   344          my_textbuffer -> head = head;
+   345          my_textbuffer -> n = size_counter;
+   346          my_textbuffer -> history  = textbuffer_stacks_new();                                 // when tb generate we create the all the history stack
+   347          my_textbuffer -> undo_history = textbuffer_stacks_new();
+   348
+   349
+   350          free(string);                                                                             // free the duplicate string for the strsep,since strsep
+   351          free (ptr[i-1]);                                                                          // will modify the orginal
+   352          free (ptr);                                                                                //free(ptr[i-1]) free the the extra '\0' string given by strsep
+   353          return my_textbuffer;                                                                    // which at the end of ptr array
+   354  }                                                                                                   // free the whole ptr array
+   355
+   356  ///////ADT Info. Getter/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   357
+   358  size_t textbuffer_lines (const Textbuffer tb){
+   359          assert(tb!=NULL);
+   360          return tb->n;
+   361  }
+   362  size_t textbuffer_bytes (const Textbuffer tb){
+   363          assert(tb!=NULL);
+   364          if (tb->head == NULL){
+   365                  return 0;
+   366          }
+   367          line curr = tb ->head;
+   368          size_t sum = 0;
+   369          while (curr !=NULL){
+   370                  sum = sum + strlen(curr->my_text);
+   371
+   372                  curr = curr -> next;
+   373          }
+   374          return sum;
+   375  }
+   376  char *textbuffer_to_str (Textbuffer tb){
+   377          assert(tb!=NULL);
+   378          if (tb->head == NULL){                                                                  // if the textbuffer is empty
+   379                  char *str = malloc(1);                                                          // we just return an NULL character
+   380                  str[0] = '\0';
+   381                  return str;
+   382          }
+   383          size_t array_size = textbuffer_bytes(tb);
+   384          Char array = malloc(array_size+1);                                                     // text+NULL
+   385
+   386          line curr = tb ->head;
+   387          strcpy(array ,curr->my_text);                                                          //otherwise we iteratively copy the the text
+   388          curr = curr ->next;                                                                      //into the string array and return it to the main scope
+   389          while (curr !=NULL){
+   390                  strcat(array,curr->my_text);
+   391                  curr = curr -> next;
+   392          }
+   393
+   394          return array;
+   395  }
+   396
+   397  //////ADT manipulation methods/////////////////////////////////////////////////////////////////////////////////////
+   398
+   399  static void textbuffer_swap_without_record (Textbuffer tb, size_t pos1, size_t pos2){
+   400          size_t tmp_int = 0;
+   401          if(pos1>pos2){                                                                       // input format pos1;pos2 == pos2;pos1
+   402                  tmp_int = pos1;
+   403                  pos1 = pos2;
+   404                  pos2 = tmp_int;
+   405          }
+   406          size_t counter = 0;
+   407          line pos_1_line = tb ->head;
+   408          while (counter!=pos1){                                                              // locate the node for swapping
+   409                  pos_1_line = pos_1_line->next;
+   410                  counter++;
+   411          }
+   412          counter = 0;
+   413          line pos_2_line = tb ->head;
+   414          while (counter!=pos2){                                                              // locate the node for swapping
+   415                  pos_2_line = pos_2_line->next;
+   416                  counter++;
+   417          }
+   418          line temp_1 = pos_1_line->prev;                         // store the node before and after the node for postion manipulation
+   419          line temp_2 = pos_1_line->next;
+   420          line temp_3 = pos_2_line->prev;
+   421          line temp_4 = pos_2_line->next;
+   422          if(pos2-pos1 == 1){                                                                  // the each case for swapping when two nodes are adjacent to each other
+   423                  if (temp_1 ==NULL && temp_4 != NULL){                   // at head
+   424                                  pos_2_line->prev = temp_1;
+   425                                  pos_2_line->next = pos_1_line;
+   426                                  pos_1_line->prev = pos_2_line;
+   427                                  pos_1_line->next = temp_4;
+   428                                  temp_4->prev = pos_1_line;
+   429                                  tb->head = pos_2_line;
+   430                          }else if (temp_1 !=NULL && temp_4 ==NULL){              // at end
+   431                                  temp_1->next = pos_2_line;
+   432                                  pos_2_line->prev = temp_1;
+   433                                  pos_2_line->next = pos_1_line;
+   434                                  pos_1_line->prev = pos_2_line;
+   435                                  pos_1_line->next = temp_4;
+   436
+   437                          }else if (temp_1 ==NULL && temp_4 ==NULL){              //when list only contains two nodes
+   438                                  pos_2_line->prev = temp_1;
+   439                                  pos_2_line->next = pos_1_line;
+   440                                  pos_1_line->prev = pos_2_line;
+   441                                  pos_1_line->next = temp_4;
+   442                                  tb->head = pos_2_line;
+   443                          }
+   444                          else{                                                                 //when two nodes are in the mid of a long list
+   445                                  temp_1->next = pos_2_line;
+   446                                  pos_2_line->prev = temp_1;
+   447                                  pos_2_line->next = pos_1_line;
+   448                                  pos_1_line->prev = pos_2_line;
+   449                                  pos_1_line->next = temp_4;
+   450                                  temp_4->prev = pos_1_line;
+   451
+   452                          }
+   453          }else{                                                                                // when two node are not adjacent to each other
+   454                  if (temp_1 ==NULL && temp_4 != NULL){                           // when one of them is at head;
+   455                                  pos_2_line->prev = temp_1;
+   456                                  pos_2_line->next = temp_2;
+   457                                  temp_2->prev = pos_2_line;
+   458
+   459                                  temp_3->next = pos_1_line;
+   460                                  pos_1_line->prev = temp_3;
+   461                                  pos_1_line->next = temp_4;
+   462                                  temp_4->prev = pos_1_line;
+   463                                  tb->head = pos_2_line;
+   464                          }else if (temp_1 !=NULL && temp_4 ==NULL){     // when one of them is the end
+   465
+   466                                  temp_1->next = pos_2_line;
+   467                                  pos_2_line->prev = temp_1;
+   468                                  pos_2_line->next = temp_2;
+   469                                  temp_2->prev = pos_2_line;
+   470
+   471                                  temp_3->next = pos_1_line;
+   472                                  pos_1_line->prev = temp_3;
+   473                                  pos_1_line->next = temp_4;
+   474                          }else if(temp_1 ==NULL && temp_4 == NULL){              // when they are both at the head and the end;
+   475                                  pos_2_line->prev = temp_1;
+   476                                  pos_2_line->next = temp_2;
+   477                                  temp_2->prev = pos_2_line;
+   478
+   479                                  temp_3->next = pos_1_line;
+   480                                  pos_1_line->prev = temp_3;
+   481                                  pos_1_line->next = temp_4;
+   482                                  tb->head = pos_2_line;
+   483                          }else{                                                                // both are not at head or the end
+   484                                  temp_1->next = pos_2_line;
+   485                                  pos_2_line->prev = temp_1;
+   486                                  pos_2_line->next = temp_2;
+   487                                  temp_2->prev = pos_2_line;
+   488
+   489                                  temp_3->next = pos_1_line;
+   490                                  pos_1_line->prev = temp_3;
+   491                                  pos_1_line->next = temp_4;
+   492                                  temp_4->prev = pos_1_line;
+   493                          }
+   494          }
+   495  }
+   496
+   497  void textbuffer_swap (Textbuffer tb, size_t pos1, size_t pos2){
+   498          assert(tb!=NULL);
+   499          if(pos1==pos2 || tb->head == NULL){                    // when its empty stack or pos1=pos2 we do nothing
+   500                  return;
+   501          }
+   502          size_t numberoflines = textbuffer_lines(tb);               // check the input range;
+   503          if (pos1 > numberoflines-1 || pos2 >numberoflines-1){
+   504                  printf("The line is out of range\n");
+   505                  abort();
+   506          }
+   507          record_operation(tb);                                                               //push the tb history into stack
+   508          clear_redo_stack(tb);                                                               //clear the undo history, so cant redo after new operation happens
+   509          textbuffer_swap_without_record (tb,pos1,pos2);                  //seperate the actual function from storing and input judging
+   510  }
+   511
+   512
+   513
+   514
+   515  static void textbuffer_insert_without_record (Textbuffer tb1, size_t pos, Textbuffer tb2){
+   516
+   517          size_t numberoflines = textbuffer_lines(tb1);
+   518          size_t numberoflines_2 = textbuffer_lines(tb2);
+   519
+   520          size_t counter = 0;
+   521          line pos_line = tb1 -> head;
+   522          while (counter!=pos){
+   523                  pos_line = pos_line->next;
+   524                  counter++;
+   525          }
+   526          line end_node_tb2 = tb2->head;
+   527          while(end_node_tb2->next !=NULL){                                                    //find the start and end of the text lists in tb2
+   528                  end_node_tb2 = end_node_tb2->next;
+   529          }
+   530          line end_node_tb1 = tb1->head;
+   531          while(end_node_tb1->next !=NULL){
+   532                  end_node_tb1 = end_node_tb1->next;
+   533          }
+   534          if (pos == 0){                                                                         //merge the list into tb1 list,for different situations
+   535                  end_node_tb2->next = tb1->head;                                              //merge at start
+   536                  tb1->head->prev = end_node_tb2;
+   537                  tb1->head = tb2->head;
+   538          }else if (pos == numberoflines){                                                     //merge at the end
+   539
+   540                  end_node_tb1->next = tb2->head;
+   541                  tb2->head->prev = end_node_tb1;
+   542
+   543          }else{                                                                                  //merge at the mid
+   544                  pos_line->prev->next = tb2->head;
+   545                  tb2->head->prev = pos_line->prev;
+   546                  end_node_tb2 ->next = pos_line;
+   547                  pos_line->prev = end_node_tb2;
+   548          }
+   549          tb1->n = tb1->n + numberoflines_2;                                                   // tb2 now is empty
+   550          tb2->n = 0;                                                                            // number of elements in tb1 are added up
+   551          tb2->head = NULL;
+   552
+   553  }
+   554
+   555  void textbuffer_insert (Textbuffer tb1, size_t pos, Textbuffer tb2){
+   556          assert(tb1!=NULL);
+   557          assert(tb2!=NULL);
+   558          size_t numberoflines = textbuffer_lines(tb1);
+   559          size_t numberoflines_2 = textbuffer_lines(tb2);
+   560          if (pos > numberoflines){                                                                // input checking
+   561                  printf("The line is out of range\n");
+   562                  printf("pos:%d\n,numberoflines:%d ",pos,numberoflines);
+   563
+   564                  abort();
+   565          }
+   566          record_operation(tb1);                                                                //push the tb history into stack
+   567          clear_redo_stack(tb1);                                                                //clear the undo history, so cant redo after new operation happens
+   568          if (tb1 ->head == NULL && tb2->head !=NULL){                                    //different cases when we merge tb2 to tb1;
+   569                  tb1->head = tb2->head;                                                        //when tb1 is emtpy,but tb2 is not
+   570                  tb1->n = tb2->n;
+   571                  tb2->head = NULL;
+   572                  tb2->n = 0;
+   573                  textbuffer_drop(tb2);
+   574          }else if (tb1 ->head != NULL && tb2->head ==NULL){                              //when tb1 is not empty,but tb2 is
+   575                  textbuffer_drop(tb2);
+   576          }else if  (tb1 ->head == NULL && tb2->head ==NULL){                             //when tb1 is empty and tb2 is empty
+   577                  textbuffer_drop(tb2);
+   578          }else{
+   579                  textbuffer_insert_without_record (tb1, pos, tb2);                       //when both are not empty
+   580                  textbuffer_drop(tb2);                                                         //drop the tb2 since tb2 is no longer used. As here tb1 wont be broken
+   581          }                                                                                        //since i cut the text from the tb2 putted into tb1, and reset the tb2
+   582  }                                                                                                //text to the NULL.Then free it.
+   583
+   584
+   585
+   586
+   587  static void textbuffer_paste_without_record (Textbuffer tb1, size_t pos, Textbuffer tb2){
+   588          size_t numberoflines = textbuffer_lines(tb1);                                   //very similar to insert,except the tb2 is still useable
+   589          size_t numberoflines_2 = textbuffer_lines(tb2);                                 //so the most algorithm are similar, just at the line 591
+   590                                                                                                   // we duplicated the list in the tb2 and merge this duplicated =
+   591          line tb2_copy_head = list_copy (tb2->head);                                         //list into tb1
+   592          size_t counter = 0;
+   593          line pos_line = tb1 -> head;
+   594          while (counter!=pos){
+   595                  pos_line = pos_line->next;
+   596                  counter++;
+   597          }
+   598          line end_node_tb2 = tb2_copy_head;
+   599          while(end_node_tb2->next !=NULL){
+   600                  end_node_tb2 = end_node_tb2->next;
+   601          }
+   602          line end_node_tb1 = tb1->head;
+   603          while(end_node_tb1->next !=NULL){
+   604                  end_node_tb1 = end_node_tb1->next;
+   605          }
+   606          if (pos == 0){
+   607                  end_node_tb2->next = tb1->head;
+   608                  tb1->head->prev = end_node_tb2;
+   609                  tb1->head = tb2_copy_head;
+   610          }else if (pos == numberoflines){
+   611
+   612                  end_node_tb1->next = tb2_copy_head;
+   613                  tb2_copy_head->prev = end_node_tb1;
+   614
+   615          }else{
+   616                  pos_line->prev->next = tb2_copy_head;
+   617                  tb2_copy_head->prev = pos_line->prev;
+   618                  end_node_tb2 ->next = pos_line;
+   619                  pos_line->prev = end_node_tb2;
+   620          }
+   621          tb1->n = tb1->n + numberoflines_2;                                                   // numberof lines in tb1 are added up
+   622  }                                                                                                //number of lines in tb2 wont change
+   623
+   624  void textbuffer_paste (Textbuffer tb1, size_t pos, Textbuffer tb2){
+   625          assert(tb1!=NULL);
+   626          assert(tb2!=NULL);
+   627          size_t numberoflines = textbuffer_lines(tb1);
+   628          size_t numberoflines_2 = textbuffer_lines(tb2);
+   629          if (pos > numberoflines){                                                             //check the input
+   630                  printf("The line is out of range\n");
+   631
+   632                  abort();
+   633          }
+   634          record_operation(tb1);                                                                //push the tb history into stack
+   635
+   636          clear_redo_stack(tb1);                                                                //clear the undo history, so cant redo after new operation happens
+   637          if (tb1 ->head == NULL && tb2->head !=NULL){                                    //different cases
+   638                  line tb2_copy_head = list_copy (tb2->head);                                 // when tb1 empty,tb2 is not
+   639                  tb1->head = tb2_copy_head;
+   640                  tb1->n = tb2->n;
+   641                  //return;
+   642          }else if (tb1 ->head != NULL && tb2->head ==NULL){                              //when tb1 is not empty,but tb2 is
+   643                  return;
+   644          }else if  (tb1 ->head == NULL && tb2->head ==NULL){                             // tb1 is empty,tb2 is empty
+   645                  return;
+   646          }else{
+   647                  textbuffer_paste_without_record (tb1, pos, tb2);                        //when both are not empty
+   648          }                                                                                        // no need for free
+   649  }
+   650
+   651
+   652  static Textbuffer textbuffer_cut_without_record (Textbuffer tb, size_t from, size_t to){
+   653          if (tb->head == NULL){                                                                //if tb is empty, we do nothing
+   654                  return NULL;
+   655          }
+   656          size_t numberoflines = textbuffer_lines(tb);
+   657          size_t tmp_int=0;
+   658          size_t counter = 0;
+   659          line from_ = tb ->head;
+   660          while (counter!=from){                                                                //locate the line of the from
+   661                  from_ = from_->next;                                                          //for manipulation
+   662                  counter++;
+   663          }
+   664          counter = 0;
+   665          line to_ = tb ->head;
+   666          while (counter!=to){                                                                  //locate the line of the to
+   667                  to_ = to_->next;                                                               //for manipulation
+   668                  counter++;
+   669          }
+   670          if(from == 0  && to != numberoflines-1){                                            //different cases for cutting
+   671                  tb->head = to_->next;                                                         // cut from head
+   672                  to_->next->prev = NULL;
+   673                  to_->next = NULL;
+   674          }
+   675          else if (from!= 0 && to ==numberoflines-1){                                         //cut to the end
+   676                  from_->prev->next = NULL;
+   677                  from_->prev = NULL;
+   678          }
+   679          else if (from ==0 && to ==numberoflines-1){                                         //cut from head to the end
+   680                  tb->head = NULL;
+   681
+   682          }
+   683          else{                                                                                   //cut from middle
+   684                  from_->prev->next = to_->next;
+   685                  to_->next->prev = from_->prev;
+   686                  to_->next = NULL;
+   687                  from_->prev = NULL;
+   688
+   689          }
+   690          Textbuffer cutted_textbuffer = malloc (sizeof(struct textbuffer));
+   691          cutted_textbuffer->head = from_;                                                     //put the cutted lines into a new textbuffer
+   692          cutted_textbuffer->n = to-from+1;
+   693          cutted_textbuffer->history = textbuffer_stacks_new();
+   694          cutted_textbuffer->undo_history = textbuffer_stacks_new();
+   695          tb->n = tb->n - (to-from)-1;                                                         //substract number of lines in tb1
+   696
+   697          return cutted_textbuffer;
+   698  }
+   699  Textbuffer textbuffer_cut (Textbuffer tb, size_t from, size_t to){
+   700          assert(tb!=NULL);
+   701
+   702          size_t numberoflines = textbuffer_lines(tb);
+   703          if (numberoflines == 0 && (from!=0||to!=0)){                                    // here is because numberoflines is unsigned int,so if its empty
+   704                  printf("The line is out of range\n");                                       //textbuufer numberoflines-1 will give negative value
+   705                  abort();                                                                        //which will be the the biggest positive value when its unsigned int
+   706          }                                                                                        //so this extra if is for when the textbuffer is empty.
+   707          if (from > numberoflines-1 || to >numberoflines-1){                             //input checking
+   708                  printf("The line is out of range\n");
+   709                  abort();
+   710          }
+   711          if(to<from){                                                                           //according to spec
+   712                  return NULL;
+   713          }
+   714          record_operation(tb);
+   715          clear_redo_stack(tb);
+   716          Textbuffer cutted_textbuffer = textbuffer_cut_without_record (tb, from, to);
+   717          return cutted_textbuffer;
+   718
+   719  }
+   720
+   721
+   722
+   723  Textbuffer textbuffer_copy (Textbuffer tb, size_t from, size_t to){     // for this function I didnt seperate the operation, since
+   724          assert(tb!=NULL);                                                                      // we dont need to undo this operation. so no need for record
+   725          size_t numberoflines = textbuffer_lines(tb);
+   726          if (numberoflines == 0 && (from!=0||to!=0)){                                    //similar to cut
+   727                  printf("The line is out of range\n");                                       //except we duplicate the lines we want to copy
+   728                  abort();                                                                        //leave the original tb unmodified
+   729          }
+   730          if (from > numberoflines-1 || to >numberoflines-1){
+   731                  printf("The line is out of range\n");
+   732                  abort();
+   733          }
+   734          size_t tmp_int=0;
+   735          if(from>to || tb->head == NULL){
+   736                  return NULL;
+   737          }
+   738          size_t counter = 0;
+   739          line from_ = tb ->head;
+   740          while (counter!=from){
+   741                  from_ = from_->next;
+   742                  counter++;
+   743          }
+   744          counter = 0;
+   745          line to_ = tb ->head;
+   746          while (counter!=to){
+   747                  to_ = to_->next;
+   748                  counter++;
+   749          }
+   750          line new_head = malloc(sizeof(struct lines));
+   751          new_head->my_text = strdup(from_->my_text);
+   752          new_head->next = NULL;
+   753          new_head->prev=NULL;
+   754          line curr = from_->next;
+   755          while(curr != to_->next){
+   756                  line new_node = malloc(sizeof(struct lines));
+   757                  new_node->my_text = strdup(curr->my_text);
+   758                  new_node->next = NULL;
+   759                  new_node->prev=NULL;
+   760                  line_append(new_head,new_node);
+   761                  curr = curr->next;
+   762          }
+   763          Textbuffer copied_textbuffer = malloc (sizeof(struct textbuffer));
+   764          copied_textbuffer->head = new_head;
+   765          copied_textbuffer->n = to-from+1;
+   766          copied_textbuffer->history = textbuffer_stacks_new();
+   767          copied_textbuffer->undo_history = textbuffer_stacks_new();
+   768          return copied_textbuffer;
+   769  }
+   770
+   771  static void textbuffer_delete_without_record (Textbuffer tb, size_t from, size_t to){
+   772          Textbuffer cutted_textbuffer = textbuffer_cut_without_record (tb, from, to);
+   773          textbuffer_drop(cutted_textbuffer);                                                   // the delete operation is essentially cut then free
+   774  }
+   775  void textbuffer_delete (Textbuffer tb, size_t from, size_t to){
+   776          size_t numberoflines = textbuffer_lines(tb);
+   777          if (numberoflines == 0 && (from!=0||to!=0)){                                        //checking
+   778                  printf("The line is out of range\n");
+   779                  abort();
+   780          }
+   781          if (from > numberoflines-1 || to >numberoflines-1){                                 //checking
+   782                  printf("The line is out of range\n");
+   783                  abort();
+   784          }
+   785          if(from>to){                                                                            //do nothing if from>to
+   786                  return;
+   787          }
+   788          record_operation(tb);
+   789          clear_redo_stack(tb);
+   790          textbuffer_delete_without_record (tb, from, to);
+   791  }
+   792
+   793  ssize_t textbuffer_search (Textbuffer tb, char *match, bool rev){
+   794          char* array = strdup(match);
+   795
+   796          size_t numberoflines = textbuffer_lines(tb);
+   797          line curr = tb->head;
+   798          line tmp = NULL;
+   799          bool found = FALSE;
+   800          size_t counter_1 = 0;
+   801          while(curr !=NULL){                                                                     // we just traverse through the list regardless
+   802                  if (Naive_search(curr->my_text,array)==1 &&rev == 0){                   // rev=0,when we traver through we do the search
+   803                          found = TRUE;                                                           // if found we break(first occurance)
+   804                          break;
+   805                  }
+   806                  counter_1++;                                                                    //count the postion
+   807                  tmp = curr;
+   808                  curr = curr->next;
+   809          }
+   810          ssize_t output = counter_1;
+   811          size_t counter_2 = 0;
+   812          if (rev){                                                                                //if we rev is 1 we grab tmp which is the end node
+   813                  while (tmp !=NULL){
+   814                          if (Naive_search(tmp->my_text,array)==1){                            // we traverse back and do the search
+   815                                  found = TRUE;
+   816                                  break;                                                           //if found we break(first occurance)
+   817                          }
+   818                          counter_2++;
+   819                          tmp=tmp->prev;
+   820                  }
+   821                  output =numberoflines-counter_2-1;
+   822          }
+   823          if (!found || strlen(match) == 0){                                                    //if search "" or we didnt found give output-1
+   824                  output = -1;
+   825          }
+   826          free(array);                                                                            //there is an strdup up so a free need to be here
+   827          return output;
+   828  }
+   829
+   830  void textbuffer_replace (Textbuffer tb, char *match, char *replace){
+   831          clear_redo_stack(tb);
+   832          line curr = tb->head;
+   833          while(curr !=NULL){
+   834                  curr->my_text = Naive_replace (curr->my_text,match,replace);            // replace the text in each node
+   835                  curr = curr->next;
+   836          }
+   837  }
+   838
+   839  static void record_undo(Textbuffer tb){                                                       // to do the redo essentially undo the undo
+   840          history_Textbuffer history_tb = malloc (sizeof(struct history_textbuffer));// we need to store the tb info before the undo
+   841          history_tb-> head = list_copy(tb->head);                                                 // so we can recover the state before the undo
+   842          history_tb->n =  tb->n;                                                    //create the node and push to the stack
+   843          textbuffer_stacks_push(tb->undo_history, history_tb);
+   844  }
+   845
+   846
+   847  void textbuffer_undo (Textbuffer tb){
+   848          if (tb->history->n_items != 0){
+   849                  record_undo(tb);                                                                 //record the state before undo for redo
+   850                  history_Textbuffer history_tb = textbuffer_stacks_pop(tb->history);     //pop the stored tb in history stack
+   851                  line curr = tb ->head;                                                          // free the existing imformation in current tb state
+   852                  while (curr !=NULL){
+   853                          line tmp = curr->next;
+   854                          free(curr->my_text);
+   855                          free(curr);
+   856                          curr = tmp;
+   857                  }
+   858
+   859                  tb->head = history_tb->head;                                                   //assign the info in history tb state to current tb state
+   860                  tb->n = history_tb->n; //added                                                 // so we can recover the state
+   861                  free(history_tb);                                                                // free the history_tb after use
+   862          }
+   863          else {
+   864                  return;                                                                           // if there is no hisotry state inside of the stack
+   865          }                                                                                          // means no operation has been done then undo do nothing
+   866  }
+   867  void textbuffer_redo (Textbuffer tb){
+   868          if (tb->undo_history->n_items==0){                            // if undo_stack is empty which means the undo havent happened
+   869                  return;                                                                          // we cant redo nothing will happen
+   870          }else{
+   871                  record_operation(tb);                                                          // record the operation before redo, so we can undo to recover the tb
+   872                  history_Textbuffer undo_history_tb = textbuffer_stacks_pop(tb->undo_history);// its like undo the redo/redo the undo cycle
+   873                  line curr = tb ->head;                                                         // pop the tb in the undo_history stack
+   874                  while (curr !=NULL){
+   875                          line tmp = curr->next;
+   876                          free(curr->my_text);                                                 // clean the current tb information
+   877                          free(curr);
+   878                          curr = tmp;
+   879                  }
+   880                  tb->head = undo_history_tb->head;                                           //retore the tb information
+   881                  tb->n = undo_history_tb->n;
+   882                  free(undo_history_tb);                                                       // free the tb
+   883          }
+   884
+   885  }
+   886
+   887
+   888
+   889  //whitebox testing//////////////////////////////////////////////////////////////////////////////////////
+   890
+   891
+   892
+   893  static void test_0 (void){
+   894          puts(">>>white box test 0");                                     // 2 nodes swap function testing
+   895          char *text = "joshua_liu \nhaha\n";
+   896          struct textbuffer* tb = textbuffer_new (text);
+   897          assert (tb->n == 2);
+   898          int i = strcmp(tb->head->my_text,"joshua_liu \n");
+   899          assert (i==0);
+   900
+   901
+   902          size_t bytes = textbuffer_bytes(tb);
+   903          assert (bytes == strlen(text));
+   904          size_t size = textbuffer_lines(tb);
+   905          assert (tb->n == 2);
+   906          assert (size == 2);
+   907          assert (strcmp(tb->head->my_text,"joshua_liu \n")==0);
+   908
+   909
+   910          textbuffer_swap (tb, 0, 1);
+   911          assert (tb->n == 2);
+   912          assert (strcmp(tb->head->my_text,"haha\n")==0);
+   913          assert (strcmp(tb->head->next->my_text,"joshua_liu \n")==0);
+   914          assert (tb->head ->prev == NULL);
+   915          assert (tb->head ->next->next == NULL);
+   916
+   917          textbuffer_swap (tb, 0, 1);
+   918          assert (tb->n == 2);
+   919          assert (strcmp(tb->head->my_text,"joshua_liu \n")==0);
+   920          assert (strcmp(tb->head->next->my_text,"haha\n")==0);
+   921          assert (tb->head ->prev == NULL);
+   922          assert (tb->head ->next->next == NULL);
+   923          textbuffer_swap (tb, 1, 0);
+   924          assert (tb->head ->prev == NULL);
+   925          assert (tb->head ->next->next == NULL);
+   926          assert (tb->n == 2);
+   927          assert (strcmp(tb->head->my_text,"haha\n")==0);
+   928          assert (strcmp(tb->head->next->my_text,"joshua_liu \n")==0);
+   929          assert (tb->head ->prev == NULL);
+   930          assert (tb->head ->next->next == NULL);
+   931          textbuffer_swap (tb, 1, 0);
+   932          assert (tb->n == 2);
+   933          assert (strcmp(tb->head->my_text,"joshua_liu \n")==0);
+   934          assert (strcmp(tb->head->next->my_text,"haha\n")==0);
+   935          assert (tb->head ->prev == NULL);
+   936          assert (tb->head ->next->next == NULL);
+   937          textbuffer_drop(tb);
+   938          puts("passed");
+   939
+   940  }
+   941
+   942  static void test_1(void){                                                                    // check the textbuffer_line or bytes or textbuffer_to_str
+   943          puts(">>>white box test 1");                                                        // doesnt change the internal state of the struct
+   944          char *text = "okbl83&ah\n\n\nokb* #dks\n99940\nJie83\n";
+   945          struct textbuffer* tb = textbuffer_new (text);
+   946          assert (tb->n == 6);
+   947          size_t size = textbuffer_lines(tb);
+   948          assert (tb->n == 6);
+   949          assert (size == 6);
+   950
+   951          size_t bytes = textbuffer_bytes(tb);
+   952          assert (bytes == strlen(text));
+   953          size = textbuffer_lines(tb);
+   954          assert (tb->n == 6);
+   955          assert (size == 6);
+   956          assert (strcmp(tb->head->my_text,"okbl83&ah\n")==0);
+   957
+   958          char *arr = textbuffer_to_str (tb);
+   959          bytes = textbuffer_bytes(tb);
+   960          assert (bytes == strlen(text));
+   961          size = textbuffer_lines(tb);
+   962          assert (tb->n == 6);
+   963          assert (size == 6);
+   964          assert (strcmp(tb->head->my_text,"okbl83&ah\n")==0);
+   965          assert (strcmp(tb->head->next->my_text,"\n")==0);
+   966          free(arr);
+   967
+   968          textbuffer_swap (tb, 3, 5);
+   969          size = textbuffer_lines(tb);
+   970          assert (tb->n == 6);
+   971          assert (size == 6);
+   972
+   973          textbuffer_drop(tb);
+   974          puts("passed");
+   975  }
+   976
+   977
+   978
+   979  static void test_2 (void){                                                                  //check the creation
+   980          puts(">>>white box test 2");
+   981          char *text = "\n";
+   982          struct textbuffer* tb = textbuffer_new (text);
+   983          assert (tb->n == 1);
+   984
+   985          char *arr = textbuffer_to_str (tb);
+   986          size_t bytes = textbuffer_bytes(tb);
+   987          assert (bytes == strlen(text));
+   988          size_t size = textbuffer_lines(tb);
+   989          assert (tb->n == 1);
+   990          assert (size == 1);
+   991          assert (strcmp(tb->head->my_text,"\n")==0);
+   992          free(arr);
+   993          textbuffer_drop(tb);
+   994          puts("passed");
+   995
+   996
+   997  }
+   998
+   999  static void test_3 (void){                                                                  //check the creation
+  1000          char *text = "\n\n";
+  1001          puts(">>>white box test 3");
+  1002          struct textbuffer* tb = textbuffer_new (text);
+  1003          assert (tb->n == 2);
+  1004
+  1005          char *arr = textbuffer_to_str (tb);
+  1006          size_t bytes = textbuffer_bytes(tb);
+  1007          assert (bytes == strlen(text));
+  1008          size_t size = textbuffer_lines(tb);
+  1009          assert (tb->n == 2);
+  1010          assert (size == 2);
+  1011          assert (strcmp(tb->head->my_text,"\n")==0);
+  1012          free(arr);
+  1013          textbuffer_drop(tb);
+  1014          puts("passed");
+  1015
+  1016  }
+  1017
+  1018  static void test_4 (void){                                                                  //check the creation
+  1019          char *text = "\n\n\n";
+  1020          puts(">>>white box test 4");
+  1021          struct textbuffer* tb = textbuffer_new (text);
+  1022          assert (tb->n == 3);
+  1023
+  1024          char *arr = textbuffer_to_str (tb);
+  1025          size_t bytes = textbuffer_bytes(tb);
+  1026          assert (bytes == strlen(text));
+  1027          size_t size = textbuffer_lines(tb);
+  1028          assert (tb->n == 3);
+  1029          assert (size == 3);
+  1030          assert (strcmp(tb->head->my_text,"\n")==0);
+  1031          free(arr);
+  1032          textbuffer_drop(tb);
+  1033          puts("passed");
+  1034
+  1035  }
+  1036  static void test_5 (void){                                                                  //check the creation
+  1037          char *text = "\n\nfjeisl_-_-fda       ___f-ewag --_____few______      \n\0";
+  1038          puts(">>>white box test 5");
+  1039          struct textbuffer* tb = textbuffer_new (text);
+  1040          assert (tb->n == 3);
+  1041
+  1042          char *arr = textbuffer_to_str (tb);
+  1043          size_t bytes = textbuffer_bytes(tb);
+  1044          assert (bytes == strlen(text));
+  1045          size_t size = textbuffer_lines(tb);
+  1046          assert (tb->n == 3);
+  1047          assert (size ==3);
+  1048          assert (strcmp(tb->head->my_text,"\n")==0);
+  1049          free(arr);
+  1050          textbuffer_drop(tb);
+  1051          puts("passed");
+  1052  }
+  1053
+  1054  static void test_6 (void){                                                                  //check the creation
+  1055          char *text = "The goal of this course is to deepen your understanding of data structures and algorithms and how these can be employed effective\nly in the design of software systems. \nIt is an important course in covering a range of core data structures and algorithms that will be used in context in later courses. \nYou explore these ideas in lectures, tutorials, lab classes, and assignments. \n Assessment involves practical lab exercises, assignments, and practical and theory exams.\n At the end of the course, we want you to be a solid programmer, with knowledge of a range of useful data structures and programming techniques,\n capable of building significant software systems in a team environment, and ready to continue with further specialised studies in computing.\n";
+  1056          puts(">>>white box test 6");
+  1057          struct textbuffer* tb = textbuffer_new (text);
+  1058          assert (tb->n == 7);
+  1059
+  1060          char *arr = textbuffer_to_str (tb);
+  1061          size_t bytes = textbuffer_bytes(tb);
+  1062          assert (bytes == strlen(text));
+  1063          size_t size = textbuffer_lines(tb);
+  1064          assert (tb->n == 7);
+  1065          assert (size == 7);
+  1066          assert (strcmp(tb->head->my_text,"The goal of this course is to deepen your understanding of data structures and algorithms and how these can be employed effective\n")==0);
+  1067          free(arr);
+  1068          textbuffer_drop(tb);
+  1069          puts("passed");
+  1070
+  1071  }
+  1072
+  1073  static void test_7 (void){                                                                      //check search/replace doesnt change anything
+  1074          puts(">>>white box test 7");
+  1075          Textbuffer new = textbuffer_new("joshua\n");
+  1076          ssize_t pos = textbuffer_search (new,"ho", 1);
+  1077          assert(new->n ==1);
+  1078          assert(strcmp(new->head->my_text,"joshua\n")==0);
+  1079          assert(new->history->top == NULL);
+  1080          assert(new->undo_history->top ==NULL);
+  1081          assert(new->history->n_items== 0);
+  1082          assert(new->undo_history->n_items == 0);
+  1083          Textbuffer new2 = textbuffer_new("bluh \n\nbluh \nflat \n");
+  1084          pos = textbuffer_search (new2,"flat", 0);
+  1085          assert(new2->n ==4);
+  1086          assert(strcmp(new2->head->my_text,"bluh \n")==0);
+  1087          assert(new2->history->top == NULL);
+  1088          assert(new2->undo_history->top ==NULL);
+  1089          assert(new2->history->n_items== 0);
+  1090          assert(new2->undo_history->n_items == 0);
+  1091          assert(strcmp(new->head->my_text,"joshua\n")==0);
+  1092
+  1093          textbuffer_replace(new,"joshua","()");
+  1094          pos = textbuffer_search (new,"ho", 1);
+  1095          assert(new->n ==1);
+  1096          assert(strcmp(new->head->my_text,"()\n")==0);
+  1097          assert(new->history->top == NULL);
+  1098          assert(new->undo_history->top ==NULL);
+  1099          assert(new->history->n_items== 0);
+  1100          assert(new->undo_history->n_items == 0);
+  1101
+  1102          textbuffer_drop(new);
+  1103          textbuffer_drop(new2);
+  1104
+  1105          puts("passed");
+  1106
+  1107  }
+  1108  static void test_8 (void){                                                                     //check internal state after copy
+  1109          puts(">>>white box test 8");
+  1110          Textbuffer new1 = textbuffer_new("\n\n\n\n\n\n\n\n");
+  1111          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+  1112
+  1113          Textbuffer new5 = textbuffer_copy(new1,0,3);
+  1114          assert(strcmp(new5->head->my_text,"\n")==0);
+  1115          assert(new5->n == 4);
+  1116          assert(new1->n == 8);
+  1117          assert(strcmp(new1->head->my_text,"\n")==0);
+  1118          assert(new5->history->top == NULL);
+  1119          assert(new5->undo_history->top ==NULL);
+  1120          assert(new5->history->n_items== 0);
+  1121          assert(new5->undo_history->n_items == 0);
+  1122          assert(new1->history->top == NULL);
+  1123          assert(new1->undo_history->top ==NULL);
+  1124          assert(new1->history->n_items== 0);
+  1125          assert(new1->undo_history->n_items == 0);
+  1126
+  1127          Textbuffer new6 = textbuffer_copy(new2,0,2);
+  1128          assert(strcmp(new6->head->my_text,"Joshua\n")==0);
+  1129          assert(new6->n == 3);
+  1130          assert(new2->n == 3);
+  1131          assert(strcmp(new2->head->my_text,"Joshua\n")==0);
+  1132          assert(new6->history->top == NULL);
+  1133          assert(new6->undo_history->top ==NULL);
+  1134          assert(new6->history->n_items== 0);
+  1135          assert(new6->undo_history->n_items == 0);
+  1136          assert(new2->history->top == NULL);
+  1137          assert(new2->undo_history->top ==NULL);
+  1138          assert(new2->history->n_items== 0);
+  1139          assert(new2->undo_history->n_items == 0);
+  1140
+  1141          textbuffer_drop(new1);
+  1142          textbuffer_drop(new2);
+  1143          textbuffer_drop(new5);
+  1144          textbuffer_drop(new6);
+  1145          puts("passed");
+  1146
+  1147  }
+  1148  static void test_9 (void){                                                                     // the internal state after the delete
+  1149          puts(">>>white box test 9");
+  1150          Textbuffer new1 = textbuffer_new("bluh \n\ncbluh \nflat \n");
+  1151          assert(new1->n == 4);
+  1152          assert(strcmp(new1->head->my_text,"bluh \n")==0);
+  1153          textbuffer_delete(new1,0,1);
+  1154          assert(strcmp(new1->head->my_text,"cbluh \n")==0);
+  1155          assert(new1->n == 2);
+  1156          assert(strcmp(new1->history->top->tb->head->my_text,"bluh \n" )== 0);
+  1157          assert(new1->undo_history->top ==NULL);
+  1158          assert(new1->history->n_items== 1);
+  1159          assert(new1->undo_history->n_items == 0);
+  1160          textbuffer_drop(new1);
+  1161          puts("passed");
+  1162  }
+  1163  static void test_10 (void){                                                                       // the internal state for the paste
+  1164          puts(">>>white box test 10");
+  1165          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+  1166          Textbuffer new1 = textbuffer_new("joshua\n");
+  1167          textbuffer_paste(new2,0,new1);
+  1168          assert(new1->n == 1);
+  1169          assert(strcmp(new1->head->my_text,"joshua\n")==0);
+  1170          assert(strcmp(new2->head->my_text,"joshua\n")==0);
+  1171          assert(new2->n == 4);
+  1172
+  1173
+  1174          textbuffer_paste(new2,2,new1);
+  1175          assert(new1->n == 1);
+  1176          assert(strcmp(new1->head->my_text,"joshua\n")==0);
+  1177          assert(strcmp(new2->head->my_text,"joshua\n")==0);
+  1178          assert(new2->n == 5);
+  1179
+  1180          textbuffer_paste(new1,1,new2);
+  1181          assert(new1->n == 6);
+  1182          assert(strcmp(new1->head->my_text,"joshua\n")==0);
+  1183          assert(strcmp(new2->head->my_text,"joshua\n")==0);
+  1184          assert(new2->n == 5);
+  1185
+  1186
+  1187
+  1188          textbuffer_drop(new1);
+  1189          textbuffer_drop(new2);
+  1190          puts("passed");
+  1191  }
+  1192
+  1193  static void test_11 (void){                                                                      // the internal state for the insert
+  1194          puts(">>>white box test 11");
+  1195          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+  1196          Textbuffer new1 = textbuffer_new("joshua\n");
+  1197          textbuffer_insert(new2,0,new1);
+  1198          assert(strcmp(new2->head->my_text,"joshua\n")==0);
+  1199          assert(new2->n == 4);
+  1200
+  1201          Textbuffer new3 = textbuffer_new("fds000a\nfsae\n");
+  1202          textbuffer_insert(new3,2,new2);
+  1203          assert(strcmp(new3->head->my_text,"fds000a\n")==0);
+  1204          assert(new3->n == 6);
+  1205
+  1206          textbuffer_drop(new3);
+  1207          puts("passed");
+  1208
+  1209
+  1210  }
+  1211  static void test_12 (void){                                                                       //check internal state for cut
+  1212          puts(">>>white box test 12");
+  1213          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+  1214          Textbuffer new3 = textbuffer_cut(new2,0,1);
+  1215          assert(strcmp(new2->head->my_text,"itsme\n")==0);
+  1216          assert(new2->n == 1);
+  1217          assert(strcmp(new3->head->my_text,"Joshua\n")==0);
+  1218          assert(new3->n == 2);
+  1219
+  1220          textbuffer_drop(new2);
+  1221          textbuffer_drop(new3);
+  1222          puts("passed");
+  1223
+  1224  }
+  1225  void white_box_tests (void){
+  1226          puts("Test 0 : white box testing");
+  1227          test_0();
+  1228          test_1();
+  1229          test_2();
+  1230          test_3();
+  1231          test_4();
+  1232          test_5();
+  1233          test_6();
+  1234          test_7();
+  1235          test_8();
+  1236          test_9();
+  1237          test_10();
+  1238          test_11();
+  1239          test_12();
+  1240  }
+  1241
+  1242
+  1243
+  1244
+  1245
+  1246
+  1247
+  1248  /*static void print_tb(Textbuffer tb){
+  1249          line curr = tb ->head; // herere
+  1250          line tmp = NULL;
+  1251          while (curr !=NULL){
+  1252                  printf("%s",curr ->my_text);
+  1253                  tmp = curr;
+  1254                  curr = curr ->next;
+  1255          }
+  1256          while (tmp!=NULL){
+  1257                  printf("%s",tmp ->my_text);
+  1258                  tmp = tmp ->prev;
+  1259
+  1260          }
+  1261
+  1262
+  1263  }*/
+
+dos2unix: converting file test_textbuffer.c to Unix format ...
+
+===============================================================================
+-rw-r----- 1 cs2521 cs2521 22992 Jan 28 21:06 test_textbuffer.c
+===============================================================================
+
+     1  ////////////////////////////////////////////////////////////////////////
+     2  // COMP2521 19T0 ... assignment 1: Textbuffer ADT submission tests
+     3
+     4  #include <assert.h>
+     5  #include <stdio.h>
+     6  #include <stdlib.h>
+     7  #include <string.h>
+     8
+     9  #include "textbuffer.h"
+    10  static void btest_0 (void);
+    11  static void btest_1 (void);
+    12  static void btest_2 (void);
+    13  static void btest_3 (void);
+    14  static void btest_4 (void);
+    15  static void btest_5 (void);
+    16  static void btest_6 (void);
+    17  static void btest_7 (void);
+    18  static void btest_8 (void);
+    19  static void btest_9 (void);
+    20  static void btest_10 (void);
+    21  static void btest_11 (void);
+    22  int main (void)
+    23  {
+    24          puts("White box tests :");
+    25          white_box_tests();
+    26
+    27          puts("Black box tests :");
+    28          puts("Test 0: Textbuffer creation");
+    29          btest_0();
+    30          puts("Test 1: Textbuffer delete function");
+    31          btest_8();
+    32          puts("Test 2: Textbuffer cut function");
+    33          btest_6();
+    34          puts("Test 3: Textbuffer to string function");
+    35          btest_1();
+    36          puts("Test 4: Textbuffer bytes counting and lines counting");
+    37          btest_2();
+    38          puts("Test 5: Textbuffer swap function testing");
+    39          btest_3();
+    40          puts("Test 6: Textbuffer paste function testing");
+    41          btest_5();
+    42          puts("Test 7: Textbuffer insert function testing");
+    43          btest_4();
+    44          puts("Test 8: Textbuffer copy function testing");
+    45          btest_7();
+    46          puts("Test 9: Textbuffer search function testing");
+    47          btest_9();
+    48          puts("Test 10: Textbuffer replace function testing");
+    49          btest_10();
+    50          puts("Test 11: Textbuffer undo/redo function testing");
+    51          //btest_11();
+    52
+    53          return EXIT_SUCCESS;
+    54  }
+    55  static void btest_0 (void){
+    56
+    57          Textbuffer new_1 = textbuffer_new("joshua\n");
+    58          assert(new_1 != NULL);
+    59          assert(textbuffer_lines(new_1) == 1);
+    60          assert(textbuffer_bytes(new_1) ==7);
+    61          textbuffer_drop(new_1);
+    62
+    63          Textbuffer new_2 = textbuffer_new("jdus\n8d9s\n");
+    64          assert(new_2 != NULL);
+    65          assert(textbuffer_lines(new_2) == 2);
+    66          assert(textbuffer_bytes(new_2) == 10);
+    67          textbuffer_drop(new_2);
+    68
+    69          Textbuffer new_3 = textbuffer_new("fse\n\n\n");
+    70          assert(new_3 != NULL);
+    71          assert(textbuffer_lines(new_3) == 3);
+    72          assert(textbuffer_bytes(new_3) == 6);
+    73          textbuffer_drop(new_3);
+    74
+    75          Textbuffer new_4 = textbuffer_new("\n\n\n\n\n\n\n\n");
+    76          assert(new_4 != NULL);
+    77          assert(textbuffer_lines(new_4) == 8);
+    78          assert(textbuffer_bytes(new_4) == 8);
+    79          textbuffer_drop(new_4);
+    80          puts("passed");
+    81  }
+    82
+    83  static void btest_8 (void){
+    84          Textbuffer new1 = textbuffer_new("bluhat \n");
+    85          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");               // valid input for textbuffer_new contains at least one \n
+    86          Textbuffer new3 = textbuffer_new("  \nnee*()F\nbunghole\n");    // which means the whenever textbuffer_new is created
+    87          Textbuffer new4 = textbuffer_new("\nfor\nmy\n");                                // it wont be empty, so we need help of delete function and cut function
+    88          Textbuffer new5 = textbuffer_new("bluh \n\nbluh \nflat \n");    // to make it empty to testing purpose,hence we also need                   // to test delete and cut at early statge
+    89
+    90          textbuffer_delete(new1,0,0);
+    91          char * text1 = textbuffer_to_str (new1);
+    92          assert(strcmp(text1,"")==0);
+    93          assert(textbuffer_lines(new1) == 0);
+    94          assert(textbuffer_bytes(new1) == 0);
+    95          free(text1);
+    96          textbuffer_drop(new1);
+    97
+    98          textbuffer_delete(new2,0,2);
+    99          char * text2 = textbuffer_to_str (new2);
+   100          assert(strcmp(text2,"")==0);
+   101          assert(textbuffer_lines(new2) == 0);
+   102          assert(textbuffer_bytes(new2) == 0);
+   103          free(text2);
+   104          textbuffer_drop(new2);
+   105
+   106          textbuffer_delete(new3,0,0);
+   107          char * text3 = textbuffer_to_str (new3);
+   108          assert(strcmp(text3,"nee*()F\nbunghole\n")==0);
+   109          assert(textbuffer_lines(new3) == 2);
+   110          assert(textbuffer_bytes(new3) == strlen(text3));
+   111          free(text3);
+   112          textbuffer_delete(new3,1,1);
+   113          text3 = textbuffer_to_str (new3);
+   114          assert(strcmp(text3,"nee*()F\n")==0);
+   115          assert(textbuffer_lines(new3) == 1);
+   116          assert(textbuffer_bytes(new3) == strlen(text3));
+   117          free(text3);
+   118          textbuffer_delete(new3,0,0);
+   119          text3 = textbuffer_to_str (new3);
+   120          assert(strcmp(text3,"")==0);
+   121          assert(textbuffer_lines(new3) == 0);
+   122          assert(textbuffer_bytes(new3) == strlen(text3));
+   123          free(text3);
+   124          textbuffer_drop(new3);
+   125
+   126          textbuffer_delete(new4,2,1);
+   127          text3 = textbuffer_to_str (new4);
+   128          assert(strcmp(text3,"\nfor\nmy\n")==0);
+   129          assert(textbuffer_lines(new4) == 3);
+   130          assert(textbuffer_bytes(new4) == strlen(text3));
+   131          free(text3);
+   132
+   133          textbuffer_delete(new4,1,2);
+   134          text3 = textbuffer_to_str (new4);
+   135          assert(strcmp(text3,"\n")==0);
+   136          assert(textbuffer_lines(new4) == 1);
+   137          assert(textbuffer_bytes(new4) == 1);
+   138          free(text3);
+   139          textbuffer_drop(new4);
+   140
+   141          textbuffer_delete(new5,0,3);
+   142          text3 = textbuffer_to_str (new5);
+   143          assert(strcmp(text3,"")==0);
+   144          assert(textbuffer_lines(new5) == 0);
+   145          assert(textbuffer_bytes(new5) == 0);
+   146          free(text3);
+   147
+   148          textbuffer_delete(new5,0,0);
+   149          text3 = textbuffer_to_str (new5);
+   150          assert(strcmp(text3,"")==0);
+   151          assert(textbuffer_lines(new5) == 0);
+   152          assert(textbuffer_bytes(new5) == 0);
+   153          free(text3);
+   154
+   155
+   156          textbuffer_drop(new5);
+   157
+   158
+   159          puts("passed");
+   160
+   161
+   162  }
+   163
+   164  static void btest_6 (void){
+   165          Textbuffer new1 = textbuffer_new("\n\n\n\n\n\n\n\n");
+   166          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+   167          Textbuffer new3 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   168
+   169
+   170          Textbuffer new5 = textbuffer_cut(new1,0,0);
+   171          char * text5 = textbuffer_to_str (new5);
+   172          assert(strcmp(text5,"\n")==0);
+   173          assert(textbuffer_lines(new5) == 1);
+   174          assert(textbuffer_bytes(new5) == 1);
+   175          free(text5);
+   176          text5 = textbuffer_to_str (new1);
+   177          assert(strcmp(text5,"\n\n\n\n\n\n\n")==0);
+   178          assert(textbuffer_lines(new1) == 7);
+   179          assert(textbuffer_bytes(new1) == 7);
+   180          free(text5);
+   181          Textbuffer new6 = textbuffer_cut(new1,2,4);
+   182          Textbuffer new7 = textbuffer_cut(new5,0,0);
+   183          text5 = textbuffer_to_str (new6);
+   184          assert(strcmp(text5,"\n\n\n")==0);
+   185          assert(textbuffer_lines(new6) == 3);
+   186          assert(textbuffer_bytes(new6) == 3);
+   187          free(text5);
+   188          text5 = textbuffer_to_str (new1);
+   189          assert(strcmp(text5,"\n\n\n\n")==0);
+   190          assert(textbuffer_lines(new1) == 4);
+   191          assert(textbuffer_bytes(new1) == 4);
+   192          free(text5);
+   193
+   194          Textbuffer new8 = textbuffer_cut(new2,0,2);
+   195          char * text8 = textbuffer_to_str (new8);
+   196          assert(strcmp(text8,"Joshua\nLIU\nitsme\n")==0);
+   197          assert(textbuffer_lines(new8) == 3);
+   198          assert(textbuffer_bytes(new8) == strlen(text8));
+   199          free(text8);
+   200
+   201          text8 = textbuffer_to_str (new2);
+   202          assert(strcmp(text8,"")==0);
+   203          assert(textbuffer_lines(new2) == 0);
+   204          assert(textbuffer_bytes(new2) == 0);
+   205          free(text8);
+   206
+   207          Textbuffer new9 = textbuffer_cut(new2,0,0);
+   208          text8 = textbuffer_to_str (new2);
+   209          assert(strcmp(text8,"")==0);
+   210          assert(textbuffer_lines(new2) == 0);
+   211          assert(textbuffer_bytes(new2) == 0);
+   212          //assert(new9 == NULL);
+   213          free(text8);
+   214
+   215          Textbuffer new10 = textbuffer_cut(new3,0,1);
+   216          text8 = textbuffer_to_str (new3);
+   217          assert(strcmp(text8,"bunghole\n")==0);
+   218          assert(textbuffer_lines(new3) == 1);
+   219          assert(textbuffer_bytes(new3) == 9);
+   220          free(text8);
+   221
+   222          text8 = textbuffer_to_str (new10);
+   223          assert(strcmp(text8,"  \nnee*()F\n")==0);
+   224          assert(textbuffer_lines(new10) == 2);
+   225          assert(textbuffer_bytes(new10) == strlen(text8));
+   226          free(text8);
+   227
+   228          textbuffer_drop(new1);
+   229          textbuffer_drop(new2);
+   230          textbuffer_drop(new3);
+   231          textbuffer_drop(new5);
+   232          textbuffer_drop(new6);
+   233          textbuffer_drop(new7);
+   234          textbuffer_drop(new8);
+   235          textbuffer_drop(new9);
+   236          textbuffer_drop(new10);
+   237          puts("passed");
+   238  }
+   239
+   240  static void btest_1 (void){
+   241          Textbuffer new_1 = textbuffer_new("jos\nhua\n");
+   242          char * text_1 = textbuffer_to_str (new_1);
+   243          assert(strcmp(text_1,"jos\nhua\n")==0);
+   244          free(text_1);
+   245
+   246
+   247          textbuffer_delete(new_1,0,1);
+   248          text_1 = textbuffer_to_str (new_1);
+   249          assert(strcmp(text_1,"")==0);
+   250          assert(textbuffer_lines(new_1) == 0);
+   251          assert(textbuffer_bytes(new_1) == 0);
+   252          textbuffer_drop(new_1);
+   253          free(text_1);
+   254
+   255
+   256          Textbuffer new_2 = textbuffer_new("jdus*()* \n8d9s\n");
+   257          char * text_2 = textbuffer_to_str (new_2);
+   258          assert(strcmp(text_2,"jdus*()* \n8d9s\n")==0);
+   259          free(text_2);
+   260          textbuffer_drop(new_2);
+   261
+   262          Textbuffer new_3 = textbuffer_new("fse\n\n\n");
+   263          char * text_3 = textbuffer_to_str (new_3);
+   264          assert(strcmp(text_3,"fse\n\n\n")==0);
+   265          free(text_3);
+   266          textbuffer_drop(new_3);
+   267
+   268          Textbuffer new_4 = textbuffer_new("\n\n\n\n\n\n\n\n");
+   269          char * text_4 = textbuffer_to_str (new_4);
+   270          assert(strcmp(text_4,"\n\n\n\n\n\n\n\n")==0);
+   271          free(text_4);
+   272          textbuffer_drop(new_4);
+   273          puts("passed");
+   274  }
+   275
+   276  static void btest_2 (void){
+   277
+   278          Textbuffer new_1 = textbuffer_new("joshua\n");
+   279          assert(new_1 != NULL);
+   280          assert(textbuffer_lines(new_1) == 1);
+   281          assert(textbuffer_bytes(new_1) ==7);
+   282
+   283
+   284          textbuffer_delete(new_1,0,0);
+   285          assert(textbuffer_lines(new_1) == 0);
+   286          assert(textbuffer_bytes(new_1) == 0);
+   287          textbuffer_drop(new_1);
+   288
+   289
+   290          Textbuffer new_2 = textbuffer_new("jdus\n8d9s\n");
+   291          assert(new_2 != NULL);
+   292          assert(textbuffer_lines(new_2) == 2);
+   293          assert(textbuffer_bytes(new_2) == 10);
+   294          textbuffer_drop(new_2);
+   295
+   296          Textbuffer new_3 = textbuffer_new("fse\n\n\n");
+   297          assert(new_3 != NULL);
+   298          assert(textbuffer_lines(new_3) == 3);
+   299          assert(textbuffer_bytes(new_3) == 6);
+   300          textbuffer_drop(new_3);
+   301
+   302          Textbuffer new_4 = textbuffer_new("\n\n\n\n\n\n\n\n");
+   303          assert(new_4 != NULL);
+   304          assert(textbuffer_lines(new_4) == 8);
+   305          assert(textbuffer_bytes(new_4) == 8);
+   306          textbuffer_drop(new_4);
+   307
+   308          Textbuffer new_5 = textbuffer_new("The goal of this course is to deepen your understanding of data structures and algorithms and how these can be employed effective\nly in the design of software systems. \nIt is an important course in covering a range of core data structures and algorithms that will be used in context in later courses. \nYou explore these ideas in lectures, tutorials, lab classes, and assignments. \n Assessment involves practical lab exercises, assignments, and practical and theory exams.\n At the end of the course, we want you to be a solid programmer, with knowledge of a range of useful data structures and programming techniques,\n capable of building significant software systems in a team environment, and ready to continue with further specialised studies in computing.\n");
+   309          char * text = textbuffer_to_str (new_5);
+   310          assert(new_5 != NULL);
+   311          assert(textbuffer_lines(new_5) == 7);
+   312          assert(textbuffer_bytes(new_5) == strlen(text));
+   313          textbuffer_drop(new_5);
+   314          free (text);
+   315
+   316          puts("passed");
+   317
+   318  }
+   319  static void btest_3 (void){
+   320          Textbuffer new = textbuffer_new("joshua\n");
+   321          textbuffer_delete(new,0,0);
+   322          assert(new != NULL);
+   323          textbuffer_swap(new,0,0);
+   324          assert(textbuffer_lines(new) == 0);
+   325          assert(textbuffer_bytes(new) == 0);
+   326          char * text = textbuffer_to_str (new);
+   327          assert(strcmp(text,"")==0);
+   328          free(text);
+   329          textbuffer_drop(new);
+   330
+   331          Textbuffer new_1 = textbuffer_new("\njoshua\n");
+   332          assert(new_1 != NULL);
+   333          textbuffer_swap(new_1,0,1);
+   334          char * text_1 = textbuffer_to_str (new_1);
+   335          assert(strcmp(text_1,"joshua\n\n")==0);
+   336          free(text_1);
+   337          textbuffer_drop(new_1);
+   338
+   339          Textbuffer new_2 = textbuffer_new("jdus\n8d9s\n");
+   340          assert(new_2 != NULL);
+   341          textbuffer_swap(new_2,0,1);
+   342          assert(textbuffer_lines(new_2) == 2);
+   343          assert(textbuffer_bytes(new_2) == 10);
+   344          char * text_2 = textbuffer_to_str (new_2);
+   345          assert(strcmp(text_2,"8d9s\njdus\n")==0);
+   346          free(text_2);
+   347          textbuffer_drop(new_2);
+   348
+   349          Textbuffer new_3 = textbuffer_new("fse\n\n\n");
+   350          textbuffer_swap(new_3,0,2);
+   351          char * text_3 = textbuffer_to_str (new_3);
+   352          assert(strcmp(text_3,"\n\nfse\n")==0);
+   353          textbuffer_swap(new_3,1,2);
+   354          assert(textbuffer_lines(new_3) == 3);
+   355          assert(textbuffer_bytes(new_3) == 6);
+   356          char * text_4 = textbuffer_to_str (new_3);
+   357          assert(strcmp(text_4,"\nfse\n\n")==0);
+   358          textbuffer_swap(new_3,0,1);
+   359          char * text_5 = textbuffer_to_str (new_3);
+   360          assert(strcmp(text_5,"fse\n\n\n")==0);
+   361          free(text_3);
+   362          free(text_4);
+   363          free(text_5);
+   364          textbuffer_drop(new_3);
+   365
+   366          Textbuffer new_4 = textbuffer_new("a\n\n\n\n\n\n\nb\n");
+   367          assert(new_4 != NULL);
+   368          textbuffer_swap(new_4,0,7);
+   369          char * text_6 = textbuffer_to_str (new_4);
+   370          assert(strcmp(text_6,"b\n\n\n\n\n\n\na\n")==0);
+   371          textbuffer_swap(new_4,0,1);
+   372          char* text_7 = textbuffer_to_str (new_4);
+   373          assert(strcmp(text_7,"\nb\n\n\n\n\n\na\n")==0);
+   374          textbuffer_swap(new_4,6,7);
+   375          char* text_8 = textbuffer_to_str (new_4);
+   376          assert(strcmp(text_8,"\nb\n\n\n\n\na\n\n")==0);
+   377          free(text_6);
+   378          free(text_7);
+   379          free(text_8);
+   380          textbuffer_drop(new_4);
+   381          puts("passed");
+   382  }
+   383  static void btest_4 (void){
+   384          Textbuffer new1 = textbuffer_new("joshua\n");
+   385          textbuffer_delete(new1,0,0);
+   386
+   387          Textbuffer new7 = textbuffer_new("ejia\nfsaef\n");
+   388          textbuffer_delete(new7,0,1);
+   389          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+   390          Textbuffer new3 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   391          Textbuffer new4 = textbuffer_new("\nfor\nmy\n");
+   392          Textbuffer new5 = textbuffer_new("bluh \n\nbluh \nflat \n");
+   393          Textbuffer new6 = textbuffer_new("bluhat \n");
+   394          textbuffer_insert(new2,3,new1);
+   395          char *text = textbuffer_to_str (new2);
+   396          assert(strcmp(text,"Joshua\nLIU\nitsme\n")==0);
+   397          free(text);
+   398
+   399          textbuffer_insert(new7,0,new2);
+   400          text = textbuffer_to_str (new7);
+   401          assert(textbuffer_lines(new7) == 3);
+   402          assert(textbuffer_bytes(new7) == strlen(text));
+   403          assert(strcmp(text,"Joshua\nLIU\nitsme\n")==0);
+   404          free(text);
+   405
+   406
+   407          textbuffer_insert(new7,1,new3);
+   408          text = textbuffer_to_str (new7);
+   409          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\nLIU\nitsme\n")==0);
+   410          free(text);
+   411
+   412          textbuffer_insert(new7,6,new4);
+   413          text = textbuffer_to_str (new7);
+   414          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\nLIU\nitsme\n\nfor\nmy\n")==0);
+   415          assert(textbuffer_lines(new7) == 9);
+   416          assert(textbuffer_bytes(new7) == strlen(text));
+   417          free(text);
+   418          textbuffer_insert(new7,8,new5);
+   419          text = textbuffer_to_str (new7);
+   420          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\nLIU\nitsme\n\nfor\nbluh \n\nbluh \nflat \nmy\n")==0);
+   421          free(text);
+   422          textbuffer_insert(new7,10,new6);
+   423          text = textbuffer_to_str (new7);
+   424          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\nLIU\nitsme\n\nfor\nbluh \n\nbluhat \nbluh \nflat \nmy\n")==0);
+   425          assert(textbuffer_lines(new7) == 14 );
+   426          assert(textbuffer_bytes(new7) == strlen(text));
+   427          free(text);
+   428          textbuffer_drop(new7);
+   429          printf("Passed\n");
+   430
+   431
+   432  }
+   433  static void btest_5 (void){
+   434          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+   435          Textbuffer new3 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   436          Textbuffer new4 = textbuffer_new("\nfor\nmy\n");
+   437          Textbuffer new5 = textbuffer_new("bluh \n\nbluh \nflat \n");
+   438          Textbuffer new6 = textbuffer_new("bluhat \n");
+   439
+   440          Textbuffer new1 = textbuffer_new("joshua\n");
+   441          textbuffer_delete(new1,0,0);
+   442
+   443          Textbuffer new7 = textbuffer_new("ejia\nfsaef\n");
+   444          textbuffer_delete(new7,0,1);
+   445
+   446
+   447          textbuffer_paste(new2,3,new1);
+   448          char *text = textbuffer_to_str (new2);
+   449          assert(strcmp(text,"Joshua\nLIU\nitsme\n")==0);
+   450          assert(textbuffer_lines(new1) == 0);
+   451          assert(textbuffer_bytes(new2) ==strlen(text));
+   452          assert(textbuffer_lines(new2) == 3);
+   453          free(text);
+   454
+   455
+   456          text = textbuffer_to_str (new1);
+   457          assert(strcmp(text,"")==0);
+   458          assert(textbuffer_bytes(new1) == 0);
+   459          assert(textbuffer_lines(new1) == 0);
+   460          free(text);
+   461
+   462          assert(textbuffer_lines(new7) == 0);
+   463          textbuffer_paste(new7,0,new2);
+   464          text = textbuffer_to_str (new7);
+   465          assert(strcmp(text,"Joshua\nLIU\nitsme\n")==0);
+   466
+   467          assert(textbuffer_lines(new2) == 3);
+   468          assert(textbuffer_bytes(new7) ==strlen(text));
+   469          assert(textbuffer_lines(new7) == 3);
+   470          free(text);
+   471
+   472          text = textbuffer_to_str (new2);
+   473          assert(strcmp(text,"Joshua\nLIU\nitsme\n")==0);
+   474          assert(textbuffer_bytes(new2) == strlen(text));
+   475          assert(textbuffer_lines(new2) == 3);
+   476          free(text);
+   477
+   478          textbuffer_paste(new7,1,new3);
+   479          text = textbuffer_to_str (new7);
+   480          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\nLIU\nitsme\n")==0);
+   481          free(text);
+   482
+   483
+   484          textbuffer_paste(new7,4,new4);
+   485          text = textbuffer_to_str (new7);
+   486          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\n\nfor\nmy\nLIU\nitsme\n")==0);
+   487          assert(textbuffer_lines(new7) == 9);
+   488          assert(textbuffer_bytes(new7) ==strlen(text));
+   489          assert(textbuffer_lines(new4) == 3);
+   490          free(text);
+   491
+   492          text = textbuffer_to_str (new4);
+   493          assert(strcmp(text,"\nfor\nmy\n")==0);
+   494          assert(textbuffer_bytes(new4) ==strlen(text));
+   495          assert(textbuffer_lines(new4) == 3);
+   496          free(text);
+   497
+   498
+   499          textbuffer_paste(new7,9,new5);
+   500          text = textbuffer_to_str (new7);
+   501          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\n\nfor\nmy\nLIU\nitsme\nbluh \n\nbluh \nflat \n")==0);
+   502          assert(textbuffer_bytes(new7) ==strlen(text));
+   503          assert(textbuffer_lines(new7) == 13);
+   504          free(text);
+   505
+   506          text = textbuffer_to_str (new5);
+   507          assert(strcmp(text,"bluh \n\nbluh \nflat \n")==0);
+   508          free(text);
+   509
+   510          textbuffer_paste(new6,0,new7);
+   511          text = textbuffer_to_str (new6);
+   512          assert(strcmp(text,"Joshua\n  \nnee*()F\nbunghole\n\nfor\nmy\nLIU\nitsme\nbluh \n\nbluh \nflat \nbluhat \n")==0);
+   513          assert(textbuffer_bytes(new6) ==strlen(text));
+   514          assert(textbuffer_lines(new6) == 14);
+   515          free(text);
+   516          puts("passed");
+   517          textbuffer_drop(new1);
+   518          textbuffer_drop(new2);
+   519          textbuffer_drop(new3);
+   520          textbuffer_drop(new4);
+   521          textbuffer_drop(new5);
+   522          textbuffer_drop(new6);
+   523          textbuffer_drop(new7);
+   524  }
+   525
+   526
+   527
+   528  static void btest_7 (void){
+   529          Textbuffer new1 = textbuffer_new("\n\n\n\n\n\n\n\n");
+   530          Textbuffer new2 = textbuffer_new("Joshua\nLIU\nitsme\n");
+   531          Textbuffer new3 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   532
+   533
+   534          Textbuffer new5 = textbuffer_copy(new1,0,0);
+   535          char * text5 = textbuffer_to_str (new5);
+   536          assert(strcmp(text5,"\n")==0);
+   537          assert(textbuffer_lines(new5) == 1);
+   538          assert(textbuffer_bytes(new5) == 1);
+   539          free(text5);
+   540          text5 = textbuffer_to_str (new1);
+   541          assert(strcmp(text5,"\n\n\n\n\n\n\n\n")==0);
+   542          assert(textbuffer_lines(new1) == 8);
+   543          assert(textbuffer_bytes(new1) == 8);
+   544          free(text5);
+   545          Textbuffer new6 = textbuffer_copy(new1,2,4);
+   546          Textbuffer new7 = textbuffer_copy(new5,0,0);
+   547          text5 = textbuffer_to_str (new6);
+   548          assert(strcmp(text5,"\n\n\n")==0);
+   549          assert(textbuffer_lines(new6) == 3);
+   550          assert(textbuffer_bytes(new6) == 3);
+   551          free(text5);
+   552          text5 = textbuffer_to_str (new1);
+   553          assert(strcmp(text5,"\n\n\n\n\n\n\n\n")==0);
+   554          assert(textbuffer_lines(new1) == 8);
+   555          assert(textbuffer_bytes(new1) == 8);
+   556          free(text5);
+   557          text5 = textbuffer_to_str (new7);
+   558          assert(strcmp(text5,"\n")==0);
+   559          assert(textbuffer_lines(new7) == 1);
+   560          assert(textbuffer_bytes(new7) == 1);
+   561          free(text5);
+   562
+   563
+   564
+   565          Textbuffer new8 = textbuffer_cut(new2,0,2);
+   566          char * text8 = textbuffer_to_str (new8);
+   567          assert(strcmp(text8,"Joshua\nLIU\nitsme\n")==0);
+   568          assert(textbuffer_lines(new8) == 3);
+   569          assert(textbuffer_bytes(new8) == strlen(text8));
+   570          free(text8);
+   571
+   572          text8 = textbuffer_to_str (new2);
+   573          assert(strcmp(text8,"")==0);
+   574          assert(textbuffer_lines(new2) == 0);
+   575          assert(textbuffer_bytes(new2) == 0);
+   576          free(text8);
+   577
+   578          Textbuffer new9 = textbuffer_copy(new2,0,0);
+   579          text8 = textbuffer_to_str (new2);
+   580          assert(strcmp(text8,"")==0);
+   581          assert(textbuffer_lines(new2) == 0);
+   582          assert(textbuffer_bytes(new2) == 0);
+   583          //assert(new9 == NULL);
+   584          free(text8);
+   585
+   586          Textbuffer new10 = textbuffer_copy(new3,0,1);
+   587          text8 = textbuffer_to_str (new3);
+   588          assert(strcmp(text8,"  \nnee*()F\nbunghole\n")==0);
+   589          assert(textbuffer_lines(new3) == 3);
+   590          assert(textbuffer_bytes(new3) == 20);
+   591          free(text8);
+   592
+   593          text8 = textbuffer_to_str (new10);
+   594          assert(strcmp(text8,"  \nnee*()F\n")==0);
+   595          assert(textbuffer_lines(new10) == 2);
+   596          assert(textbuffer_bytes(new10) == strlen(text8));
+   597          free(text8);
+   598
+   599          textbuffer_drop(new1);
+   600          textbuffer_drop(new2);
+   601          textbuffer_drop(new3);
+   602          textbuffer_drop(new5);
+   603          textbuffer_drop(new6);
+   604          textbuffer_drop(new7);
+   605          textbuffer_drop(new8);
+   606          textbuffer_drop(new9);
+   607          textbuffer_drop(new10);
+   608          puts("passed");
+   609
+   610
+   611
+   612  }
+   613  static void btest_9(void){
+   614          Textbuffer new1 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   615
+   616          Textbuffer new2 = textbuffer_new("bluh \n\nbluh \nflat \n");
+   617          Textbuffer new3 = textbuffer_new("Joshua\n  \nnee*()F\nbunghole\n\nbluh \n\nbluh \nflat \nfor\nmy\nLIU\nitsme\n");
+   618          ssize_t pos = textbuffer_search (new1,"ho", 1);
+   619          char * text1 = textbuffer_to_str (new1);
+   620          assert(strcmp(text1,"  \nnee*()F\nbunghole\n")==0);
+   621          assert(textbuffer_lines(new1) == 3);
+   622          assert(textbuffer_bytes(new1) == strlen(text1));
+   623          assert(pos == 2);
+   624          pos = textbuffer_search (new1,"ho", 0);
+   625          assert(pos == 2);
+   626          pos = textbuffer_search (new1,"e", 0);
+   627          assert(pos == 1);
+   628          pos = textbuffer_search (new1,"e", 1);
+   629          assert(pos == 2);
+   630          pos = textbuffer_search (new1," ", 0);
+   631          assert(pos == 0);
+   632          pos = textbuffer_search (new1," ", 1);
+   633          assert(pos == 0);
+   634          pos = textbuffer_search (new1,"fdsafa", 1);
+   635          assert(pos == -1);
+   636          pos = textbuffer_search (new1,"ffa", 1);
+   637          assert(pos == -1);
+   638          free(text1);
+   639          textbuffer_delete(new1,0,2);
+   640          text1 = textbuffer_to_str (new1);
+   641          assert(strcmp(text1,"")==0);
+   642          assert(textbuffer_lines(new1) == 0);
+   643          assert(textbuffer_bytes(new1) == 0);
+   644          pos = textbuffer_search (new1,"ffa", 1);
+   645          assert(pos == -1);
+   646          pos = textbuffer_search (new1,"f", 1);
+   647          assert(pos == -1);
+   648          //pos = textbuffer_search (new1,"", 1);
+   649          //assert(pos == -1);
+   650          free(text1);
+   651
+   652          pos = textbuffer_search (new2,"flat", 0);
+   653          assert(pos == 3);
+   654          pos = textbuffer_search (new2,"blu", 0);
+   655          assert(pos == 0);
+   656          pos = textbuffer_search (new2,"blu", 1);
+   657          assert(pos == 2);
+   658          //pos = textbuffer_search (new2,"", 0);
+   659          //assert(pos == -1);
+   660
+   661          pos = textbuffer_search (new3,"(", 0);
+   662          assert(pos == 2);
+   663          pos = textbuffer_search (new3,"(", 0);
+   664          assert(pos == 2);
+   665          pos = textbuffer_search (new3,"bluh", 1);
+   666          assert(pos == 7);
+   667          pos = textbuffer_search (new3,"bluh", 0);
+   668          assert(pos == 5);
+   669
+   670          textbuffer_drop(new1);
+   671          textbuffer_drop(new2);
+   672          textbuffer_drop(new3);
+   673          puts("passed");
+   674  }
+   675
+   676
+   677  static void btest_10(void){
+   678          Textbuffer new1 = textbuffer_new("  \nnee*()F\nbunghole\n");
+   679          Textbuffer new2 = textbuffer_new("bluh \n\nbluh \nflat \nfea\nbaba\nfeoslcbaba\nfleabababo\n");
+   680          textbuffer_replace(new1,"()","joshuaLIU");
+   681          char *text = textbuffer_to_str (new1);
+   682          assert(strcmp(text,"  \nnee*joshuaLIUF\nbunghole\n")==0);
+   683          assert(textbuffer_lines(new1) == 3);
+   684          assert(textbuffer_bytes(new1) == 27);
+   685          free(text);
+   686
+   687          textbuffer_replace(new1,"joshuaLIU","()");
+   688          text = textbuffer_to_str (new1);
+   689          assert(strcmp(text,"  \nnee*()F\nbunghole\n")==0);
+   690          assert(textbuffer_lines(new1) == 3);
+   691          assert(textbuffer_bytes(new1) == 20);
+   692          free(text);
+   693
+   694          textbuffer_replace(new2,"bluh","");
+   695          text = textbuffer_to_str (new2);
+   696          assert(strcmp(text," \n\n \nflat \nfea\nbaba\nfeoslcbaba\nfleabababo\n")==0);
+   697          assert(textbuffer_lines(new2) == 8);
+   698          assert(textbuffer_bytes(new2) == strlen(text));
+   699          free(text);
+   700
+   701          textbuffer_drop(new1);
+   702          textbuffer_drop(new2);
+   703          puts("passed");
+   704  }
+   705
+   706
+   707  /*static void btest_11 (void){
+   708          Textbuffer new1 = textbuffer_new("hello\njoshua_liu\nits me\nspnge()&*\nehiue\n");
+   709          Textbuffer new2 = textbuffer_new("i\nj\n");
+   710          Textbuffer new3=  textbuffer_new("j\n");
+   711          textbuffer_swap (new1, 0, 1);
+   712          char* text = textbuffer_to_str (new1);
+   713          assert(strcmp(text,"joshua_liu\nhello\nits me\nspnge()&*\nehiue\n")==0);
+   714          assert(textbuffer_lines(new1) == 5);
+   715          assert(textbuffer_bytes(new1) == strlen(text));
+   716          free(text);
+   717          textbuffer_undo(new1);
+   718          text = textbuffer_to_str (new1);
+   719          assert(strcmp(text,"hello\njoshua_liu\nits me\nspnge()&*\nehiue\n")==0);
+   720          assert(textbuffer_lines(new1) == 5);
+   721          assert(textbuffer_bytes(new1) == strlen(text));
+   722          free(text);
+   723          textbuffer_redo(new1);
+   724          text = textbuffer_to_str (new1);
+   725          assert(strcmp(text,"joshua_liu\nhello\nits me\nspnge()&*\nehiue\n")==0);
+   726          assert(textbuffer_lines(new1) == 5);
+   727          assert(textbuffer_bytes(new1) == strlen(text));
+   728          free(text);
+   729
+   730          //textbuffer_paste(new2,1,new3);
+   731          for (int i = 0;i<3;i++){
+   732                  textbuffer_swap (new2,0,i );
+   733                  textbuffer_paste(new2,2,new3);
+   734                  //printf("%d\n",textbuffer_lines(new2));
+   735          }
+   736          textbuffer_drop(new1);
+   737          textbuffer_drop(new2);
+   738          textbuffer_drop(new3);
+   739          puts("passed");
+   740
+   741
+   742
+   743  }*/
+
+
+========================================================================
+3c -c textbuffer.c
+textbuffer.c:211:26: warning: implicit conversion changes signedness: 'int' to 'unsigned long' [-Wsign-conversion]
+        size_t size = strlen(s)-diff+strlen(replace);                                           // original string
+                               ~^~~~
+textbuffer.c:219:15: warning: comparison of integers of different signs: 'int' and 'unsigned long' [-Wsign-compare]
+        for (c = 0;c < strlen(replace);c++){                                                            // assign the replacing string
+                   ~ ^ ~~~~~~~~~~~~~~~
+textbuffer.c:223:17: warning: comparison of integers of different signs: 'int' and 'unsigned long' [-Wsign-compare]
+        for (q = j+1; q< strlen(s);q++){
+                      ~^ ~~~~~~~~~
+textbuffer.c:231:10: warning: implicit conversion loses integer precision: 'unsigned long' to 'int' [-Wshorten-64-to-32]
+        int n = strlen(str);                                                                                            // but now we return the two postions of the pattern i and j;
+            ~   ^~~~~~~~~~~
+textbuffer.c:232:10: warning: implicit conversion loses integer precision: 'unsigned long' to 'int' [-Wshorten-64-to-32]
+        int m = strlen(substr);
+            ~   ^~~~~~~~~~~~~~
+textbuffer.c:291:18: warning: comparison of integers of different signs: 'int' and 'size_t' (aka 'unsigned long') [-Wsign-compare]
+        for (int i =0; i<tb1->undo_history->n_items;i++){
+                       ~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+textbuffer.c:562:39: warning: format specifies type 'int' but the argument has type 'size_t' (aka 'unsigned long') [-Wformat]
+                printf("pos:%d\n,numberoflines:%d ",pos,numberoflines);
+                            ~~                      ^~~
+                            %zu
+textbuffer.c:562:43: warning: format specifies type 'int' but the argument has type 'size_t' (aka 'unsigned long') [-Wformat]
+                printf("pos:%d\n,numberoflines:%d ",pos,numberoflines);
+                                               ~~       ^~~~~~~~~~~~~
+                                               %zu
+textbuffer.c:559:10: warning: unused variable 'numberoflines_2' [-Wunused-variable]
+        size_t numberoflines_2 = textbuffer_lines(tb2);
+               ^
+textbuffer.c:628:10: warning: unused variable 'numberoflines_2' [-Wunused-variable]
+        size_t numberoflines_2 = textbuffer_lines(tb2);
+               ^
+textbuffer.c:657:9: warning: unused variable 'tmp_int' [-Wunused-variable]
+        size_t tmp_int=0;
+               ^
+textbuffer.c:734:9: warning: unused variable 'tmp_int' [-Wunused-variable]
+        size_t tmp_int=0;
+               ^
+textbuffer.c:810:19: warning: implicit conversion changes signedness: 'size_t' (aka 'unsigned long') to 'ssize_t' (aka 'long') [-Wsign-conversion]
+        ssize_t output = counter_1;
+                ~~~~~~   ^~~~~~~~~
+textbuffer.c:821:34: warning: implicit conversion changes signedness: 'unsigned long' to 'ssize_t' (aka 'long') [-Wsign-conversion]
+                output =numberoflines-counter_2-1;
+                       ~~~~~~~~~~~~~~~~~~~~~~~~^~
+14 warnings generated.
+
+========================================================================
+3c -c test_textbuffer.c
+test_textbuffer.c:21:13: warning: unused function 'btest_11' [-Wunused-function]
+static void btest_11 (void);
+            ^
+1 warning generated.
+
+!!section tests
+!!section assess
+test 1 (dryrun00): test passed
+test 2 (dryrun01): test passed
+test 3 (dryrun02): test passed
+test 4 (dryrun03): test passed
+test 5 (dryrun04): test passed
+test 6 (dryrun05): test passed
+test 7 (dryrun06): test passed
+test 8 (dryrun07): test passed
+test 9 (dryrun08): test passed
+test 10 (dryrun09): test passed
+test 11 (dryrun10): test passed
+test 12 (marking00): test passed
+test 13 (marking01): test passed
+test 14 (marking02): test passed
+test 15 (marking03): test passed
+test 16 (marking04): test passed
+test 17 (marking05): test passed
+test 18 (marking06): test passed
+test 19 (marking07): test passed
+test 20 (marking08): test passed
+test 21 (marking09): test passed
+test 22 (marking10): test passed
+test 23 (marking11): test passed
+test 24 (marking12): test passed
+test 25 (marking13): test passed
+test 26 (marking14): test passed
+test 27 (marking15): test passed
+test 28 (marking16): test passed
+
+The following is the expected output:
+
+ok 1 # new ([...])
+ok 2 # replace "line 01" "line 01! how exciting"
+ok 3 # lines tb1 = 10
+ok 4 # bytes tb1 = 94
+ok 5 # drop tb1
+
+
+The following is the actual output produced:
+
+ok 1 # new ([...])
+
+
+The following is a listing of differences between your output (in red,
+ preceded by '<'), and the expected output (in green, preceded by '>')
+for this test:
+
+1a2,5
+> ok 2 # replace "line 01" "line 01! how exciting"
+> ok 3 # lines tb1 = 10
+> ok 4 # bytes tb1 = 94
+> ok 5 # drop tb1
+
+
+The program exited forcibly (time limit exceeded).
+We expected it to exit with exit status EXIT_SUCCESS (0).
+
+test 29 (marking17): test failed
+test 30 (marking18): test passed
+30 test(s):     29 passed; 1 failed; 0 could not be run.
+!!specialmark  (Correctness)                            58/60
+
+
+==> 5036602 <==
+
+
+============================
+== Black box test output  ==
+============================
+
+[INFO]          About to call student's blackbox tests
+[STUDENT]       Black box tests :
+[STUDENT]       Test 0: Textbuffer creation
+[FUNCTION]      >> textbuffer_new("joshua|")
+[FUNCTION]      >> textbuffer_lines(0x606000000020)
+[FUNCTION]      >> textbuffer_bytes(0x606000000020)
+[FUNCTION]      >> textbuffer_drop(0x606000000020)
+[FUNCTION]      >> textbuffer_new("jdus|8d9s|")
+[FUNCTION]      >> textbuffer_lines(0x606000000080)
+[FUNCTION]      >> textbuffer_bytes(0x606000000080)
+[FUNCTION]      >> textbuffer_drop(0x606000000080)
+[FUNCTION]      >> textbuffer_new("fse|||")
+[FUNCTION]      >> textbuffer_lines(0x6060000000e0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000000e0)
+[FUNCTION]      >> textbuffer_drop(0x6060000000e0)
+[FUNCTION]      >> textbuffer_new("||||||||")
+[FUNCTION]      >> textbuffer_lines(0x606000000140)
+[FUNCTION]      >> textbuffer_bytes(0x606000000140)
+[FUNCTION]      >> textbuffer_drop(0x606000000140)
+[STUDENT]       passed
+[STUDENT]       Test 1: Textbuffer delete function
+[ERROR]         textbuffer_delete:757: can't delete an empty textbuffer!
+[FUNCTION]      >> textbuffer_new("bluhat |")
+[FUNCTION]      >> textbuffer_new("Joshua|LIU|itsme|")
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_new("|for|my|")
+[FUNCTION]      >> textbuffer_new("bluh ||bluh |flat |")
+[FUNCTION]      >> textbuffer_delete(0x6060000001a0, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x6060000001a0)
+[FUNCTION]      >> textbuffer_lines(0x6060000001a0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000001a0)
+[FUNCTION]      >> textbuffer_drop(0x6060000001a0)
+[FUNCTION]      >> textbuffer_delete(0x606000000200, 0, 2)
+[FUNCTION]      >> textbuffer_to_str(0x606000000200)
+[FUNCTION]      >> textbuffer_lines(0x606000000200)
+[FUNCTION]      >> textbuffer_bytes(0x606000000200)
+[FUNCTION]      >> textbuffer_drop(0x606000000200)
+[FUNCTION]      >> textbuffer_delete(0x606000000260, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000000260)
+[FUNCTION]      >> textbuffer_lines(0x606000000260)
+[FUNCTION]      >> textbuffer_bytes(0x606000000260)
+[FUNCTION]      >> textbuffer_delete(0x606000000260, 1, 1)
+[FUNCTION]      >> textbuffer_to_str(0x606000000260)
+[FUNCTION]      >> textbuffer_lines(0x606000000260)
+[FUNCTION]      >> textbuffer_bytes(0x606000000260)
+[FUNCTION]      >> textbuffer_delete(0x606000000260, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000000260)
+[FUNCTION]      >> textbuffer_lines(0x606000000260)
+[FUNCTION]      >> textbuffer_bytes(0x606000000260)
+[FUNCTION]      >> textbuffer_drop(0x606000000260)
+[FUNCTION]      >> textbuffer_delete(0x6060000002c0, 2, 1)
+[FUNCTION]      >> textbuffer_to_str(0x6060000002c0)
+[FUNCTION]      >> textbuffer_lines(0x6060000002c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000002c0)
+[FUNCTION]      >> textbuffer_delete(0x6060000002c0, 1, 2)
+[FUNCTION]      >> textbuffer_to_str(0x6060000002c0)
+[FUNCTION]      >> textbuffer_lines(0x6060000002c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000002c0)
+[FUNCTION]      >> textbuffer_drop(0x6060000002c0)
+[FUNCTION]      >> textbuffer_delete(0x606000000320, 0, 3)
+[FUNCTION]      >> textbuffer_to_str(0x606000000320)
+[FUNCTION]      >> textbuffer_lines(0x606000000320)
+[FUNCTION]      >> textbuffer_bytes(0x606000000320)
+[FUNCTION]      >> textbuffer_delete(0x606000000320, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000000320)
+[FUNCTION]      >> textbuffer_lines(0x606000000320)
+[FUNCTION]      >> textbuffer_bytes(0x606000000320)
+[FUNCTION]      >> textbuffer_drop(0x606000000320)
+[STUDENT]       passed
+[STUDENT]       Test 2: Textbuffer cut function
+[ERROR]         textbuffer_cut:651: lines out of range.
+[FUNCTION]      >> textbuffer_new("||||||||")
+[FUNCTION]      >> textbuffer_new("Joshua|LIU|itsme|")
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_cut(0x6060000008c0, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000000a40)
+[FUNCTION]      >> textbuffer_lines(0x606000000a40)
+[FUNCTION]      >> textbuffer_bytes(0x606000000a40)
+[FUNCTION]      >> textbuffer_to_str(0x6060000008c0)
+[FUNCTION]      >> textbuffer_lines(0x6060000008c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000008c0)
+[FUNCTION]      >> textbuffer_cut(0x6060000008c0, 2, 4)
+[FUNCTION]      >> textbuffer_cut(0x606000000a40, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000000b00)
+[FUNCTION]      >> textbuffer_lines(0x606000000b00)
+[FUNCTION]      >> textbuffer_bytes(0x606000000b00)
+[FUNCTION]      >> textbuffer_to_str(0x6060000008c0)
+[FUNCTION]      >> textbuffer_lines(0x6060000008c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000008c0)
+[FUNCTION]      >> textbuffer_cut(0x606000000920, 0, 2)
+[FUNCTION]      >> textbuffer_to_str(0x606000000c80)
+[FUNCTION]      >> textbuffer_lines(0x606000000c80)
+[FUNCTION]      >> textbuffer_bytes(0x606000000c80)
+[FUNCTION]      >> textbuffer_to_str(0x606000000920)
+[FUNCTION]      >> textbuffer_lines(0x606000000920)
+[FUNCTION]      >> textbuffer_bytes(0x606000000920)
+[FUNCTION]      >> textbuffer_cut(0x606000000920, 0, 0)
+[ABORT]         (call to abort() ignored)
+[FUNCTION]      >> textbuffer_to_str(0x606000000920)
+[FUNCTION]      >> textbuffer_lines(0x606000000920)
+[FUNCTION]      >> textbuffer_bytes(0x606000000920)
+[FUNCTION]      >> textbuffer_cut(0x606000000980, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x606000000980)
+[FUNCTION]      >> textbuffer_lines(0x606000000980)
+[FUNCTION]      >> textbuffer_bytes(0x606000000980)
+[FUNCTION]      >> textbuffer_to_str(0x606000000d40)
+[FUNCTION]      >> textbuffer_lines(0x606000000d40)
+[FUNCTION]      >> textbuffer_bytes(0x606000000d40)
+[FUNCTION]      >> textbuffer_drop(0x6060000008c0)
+[FUNCTION]      >> textbuffer_drop(0x606000000920)
+[FUNCTION]      >> textbuffer_drop(0x606000000980)
+[FUNCTION]      >> textbuffer_drop(0x606000000a40)
+[FUNCTION]      >> textbuffer_drop(0x606000000b00)
+[FUNCTION]      >> textbuffer_drop(0x606000000bc0)
+[FUNCTION]      >> textbuffer_drop(0x606000000c80)
+[FUNCTION]      >> textbuffer_drop((nil))
+[UNDEFINED]     Attempted to call textbuffer_drop on an invalid textbuffer
+[FUNCTION]      >> textbuffer_drop(0x606000000d40)
+[STUDENT]       passed
+[STUDENT]       Test 3: Textbuffer to string function
+[FUNCTION]      >> textbuffer_new("jos|hua|")
+[FUNCTION]      >> textbuffer_to_str(0x606000000da0)
+[FUNCTION]      >> textbuffer_delete(0x606000000da0, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x606000000da0)
+[FUNCTION]      >> textbuffer_lines(0x606000000da0)
+[FUNCTION]      >> textbuffer_bytes(0x606000000da0)
+[FUNCTION]      >> textbuffer_drop(0x606000000da0)
+[FUNCTION]      >> textbuffer_new("jdus*()* |8d9s|")
+[FUNCTION]      >> textbuffer_to_str(0x606000000ec0)
+[FUNCTION]      >> textbuffer_drop(0x606000000ec0)
+[FUNCTION]      >> textbuffer_new("fse|||")
+[FUNCTION]      >> textbuffer_to_str(0x606000000f20)
+[FUNCTION]      >> textbuffer_drop(0x606000000f20)
+[FUNCTION]      >> textbuffer_new("||||||||")
+[FUNCTION]      >> textbuffer_to_str(0x606000000f80)
+[FUNCTION]      >> textbuffer_drop(0x606000000f80)
+[STUDENT]       passed
+[STUDENT]       Test 4: Textbuffer bytes counting and lines counting
+[FUNCTION]      >> textbuffer_new("joshua|")
+[FUNCTION]      >> textbuffer_lines(0x606000000fe0)
+[FUNCTION]      >> textbuffer_bytes(0x606000000fe0)
+[FUNCTION]      >> textbuffer_delete(0x606000000fe0, 0, 0)
+[FUNCTION]      >> textbuffer_lines(0x606000000fe0)
+[FUNCTION]      >> textbuffer_bytes(0x606000000fe0)
+[FUNCTION]      >> textbuffer_drop(0x606000000fe0)
+[FUNCTION]      >> textbuffer_new("jdus|8d9s|")
+[FUNCTION]      >> textbuffer_lines(0x606000001100)
+[FUNCTION]      >> textbuffer_bytes(0x606000001100)
+[FUNCTION]      >> textbuffer_drop(0x606000001100)
+[FUNCTION]      >> textbuffer_new("fse|||")
+[FUNCTION]      >> textbuffer_lines(0x606000001160)
+[FUNCTION]      >> textbuffer_bytes(0x606000001160)
+[FUNCTION]      >> textbuffer_drop(0x606000001160)
+[FUNCTION]      >> textbuffer_new("||||||||")
+[FUNCTION]      >> textbuffer_lines(0x6060000011c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000011c0)
+[FUNCTION]      >> textbuffer_drop(0x6060000011c0)
+[FUNCTION]      >> textbuffer_new("The goal of this course is to deepen your understanding of data structures and algorithms and how these can be [...]")
+[FUNCTION]      >> textbuffer_to_str(0x606000001220)
+[FUNCTION]      >> textbuffer_lines(0x606000001220)
+[FUNCTION]      >> textbuffer_bytes(0x606000001220)
+[FUNCTION]      >> textbuffer_drop(0x606000001220)
+[STUDENT]       passed
+[STUDENT]       Test 5: Textbuffer swap function testing
+[ERROR]         textbuffer_swap:447: pos out of range.
+[FUNCTION]      >> textbuffer_new("joshua|")
+[FUNCTION]      >> textbuffer_delete(0x606000001280, 0, 0)
+[FUNCTION]      >> textbuffer_swap(0x606000001280, 0, 0)
+[ABORT]         (call to abort() ignored)
+[FUNCTION]      >> textbuffer_lines(0x606000001280)
+[FUNCTION]      >> textbuffer_bytes(0x606000001280)
+[FUNCTION]      >> textbuffer_to_str(0x606000001280)
+[FUNCTION]      >> textbuffer_drop(0x606000001280)
+[FUNCTION]      >> textbuffer_new("|joshua|")
+[FUNCTION]      >> textbuffer_swap(0x6060000013a0, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x6060000013a0)
+[FUNCTION]      >> textbuffer_drop(0x6060000013a0)
+[FUNCTION]      >> textbuffer_new("jdus|8d9s|")
+[FUNCTION]      >> textbuffer_swap(0x606000001400, 0, 1)
+[FUNCTION]      >> textbuffer_lines(0x606000001400)
+[FUNCTION]      >> textbuffer_bytes(0x606000001400)
+[FUNCTION]      >> textbuffer_to_str(0x606000001400)
+[FUNCTION]      >> textbuffer_drop(0x606000001400)
+[FUNCTION]      >> textbuffer_new("fse|||")
+[FUNCTION]      >> textbuffer_swap(0x606000001460, 0, 2)
+[FUNCTION]      >> textbuffer_to_str(0x606000001460)
+[FUNCTION]      >> textbuffer_swap(0x606000001460, 1, 2)
+[FUNCTION]      >> textbuffer_lines(0x606000001460)
+[FUNCTION]      >> textbuffer_bytes(0x606000001460)
+[FUNCTION]      >> textbuffer_to_str(0x606000001460)
+[FUNCTION]      >> textbuffer_swap(0x606000001460, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x606000001460)
+[FUNCTION]      >> textbuffer_drop(0x606000001460)
+[FUNCTION]      >> textbuffer_new("a|||||||b|")
+[FUNCTION]      >> textbuffer_swap(0x6060000014c0, 0, 7)
+[FUNCTION]      >> textbuffer_to_str(0x6060000014c0)
+[FUNCTION]      >> textbuffer_swap(0x6060000014c0, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x6060000014c0)
+[FUNCTION]      >> textbuffer_swap(0x6060000014c0, 6, 7)
+[FUNCTION]      >> textbuffer_to_str(0x6060000014c0)
+[FUNCTION]      >> textbuffer_drop(0x6060000014c0)
+[STUDENT]       passed
+[STUDENT]       Test 6: Textbuffer paste function testing
+[FUNCTION]      >> textbuffer_new("Joshua|LIU|itsme|")
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_new("|for|my|")
+[FUNCTION]      >> textbuffer_new("bluh ||bluh |flat |")
+[FUNCTION]      >> textbuffer_new("bluhat |")
+[FUNCTION]      >> textbuffer_new("joshua|")
+[FUNCTION]      >> textbuffer_delete(0x606000001700, 0, 0)
+[FUNCTION]      >> textbuffer_new("ejia|fsaef|")
+[FUNCTION]      >> textbuffer_delete(0x606000001820, 0, 1)
+[FUNCTION]      >> textbuffer_paste(0x606000001520, 3, 0x606000001700)
+[FUNCTION]      >> textbuffer_to_str(0x606000001520)
+[FUNCTION]      >> textbuffer_lines(0x606000001700)
+[FUNCTION]      >> textbuffer_bytes(0x606000001520)
+[FUNCTION]      >> textbuffer_lines(0x606000001520)
+[FUNCTION]      >> textbuffer_to_str(0x606000001700)
+[FUNCTION]      >> textbuffer_bytes(0x606000001700)
+[FUNCTION]      >> textbuffer_lines(0x606000001700)
+[FUNCTION]      >> textbuffer_lines(0x606000001820)
+[FUNCTION]      >> textbuffer_paste(0x606000001820, 0, 0x606000001520)
+[FUNCTION]      >> textbuffer_to_str(0x606000001820)
+[FUNCTION]      >> textbuffer_lines(0x606000001520)
+[FUNCTION]      >> textbuffer_bytes(0x606000001820)
+[FUNCTION]      >> textbuffer_lines(0x606000001820)
+[FUNCTION]      >> textbuffer_to_str(0x606000001520)
+[FUNCTION]      >> textbuffer_bytes(0x606000001520)
+[FUNCTION]      >> textbuffer_lines(0x606000001520)
+[FUNCTION]      >> textbuffer_paste(0x606000001820, 1, 0x606000001580)
+[FUNCTION]      >> textbuffer_to_str(0x606000001820)
+[FUNCTION]      >> textbuffer_paste(0x606000001820, 4, 0x6060000015e0)
+[FUNCTION]      >> textbuffer_to_str(0x606000001820)
+[FUNCTION]      >> textbuffer_lines(0x606000001820)
+[FUNCTION]      >> textbuffer_bytes(0x606000001820)
+[FUNCTION]      >> textbuffer_lines(0x6060000015e0)
+[FUNCTION]      >> textbuffer_to_str(0x6060000015e0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000015e0)
+[FUNCTION]      >> textbuffer_lines(0x6060000015e0)
+[FUNCTION]      >> textbuffer_paste(0x606000001820, 9, 0x606000001640)
+[FUNCTION]      >> textbuffer_to_str(0x606000001820)
+[FUNCTION]      >> textbuffer_bytes(0x606000001820)
+[FUNCTION]      >> textbuffer_lines(0x606000001820)
+[FUNCTION]      >> textbuffer_to_str(0x606000001640)
+[FUNCTION]      >> textbuffer_paste(0x6060000016a0, 0, 0x606000001820)
+[FUNCTION]      >> textbuffer_to_str(0x6060000016a0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000016a0)
+[FUNCTION]      >> textbuffer_lines(0x6060000016a0)
+[STUDENT]       passed
+[FUNCTION]      >> textbuffer_drop(0x606000001700)
+[FUNCTION]      >> textbuffer_drop(0x606000001520)
+[FUNCTION]      >> textbuffer_drop(0x606000001580)
+[FUNCTION]      >> textbuffer_drop(0x6060000015e0)
+[FUNCTION]      >> textbuffer_drop(0x606000001640)
+[FUNCTION]      >> textbuffer_drop(0x6060000016a0)
+[FUNCTION]      >> textbuffer_drop(0x606000001820)
+[STUDENT]       Test 7: Textbuffer insert function testing
+[FUNCTION]      >> textbuffer_new("joshua|")
+[FUNCTION]      >> textbuffer_delete(0x606000001b80, 0, 0)
+[FUNCTION]      >> textbuffer_new("ejia|fsaef|")
+[FUNCTION]      >> textbuffer_delete(0x606000001ca0, 0, 1)
+[FUNCTION]      >> textbuffer_new("Joshua|LIU|itsme|")
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_new("|for|my|")
+[FUNCTION]      >> textbuffer_new("bluh ||bluh |flat |")
+[FUNCTION]      >> textbuffer_new("bluhat |")
+[FUNCTION]      >> textbuffer_insert(0x606000001dc0, 3, 0x606000001b80)
+[FUNCTION]      >> textbuffer_to_str(0x606000001dc0)
+[FUNCTION]      >> textbuffer_insert(0x606000001ca0, 0, 0x606000001dc0)
+[FUNCTION]      >> textbuffer_to_str(0x606000001ca0)
+[FUNCTION]      >> textbuffer_lines(0x606000001ca0)
+[FUNCTION]      >> textbuffer_bytes(0x606000001ca0)
+[FUNCTION]      >> textbuffer_insert(0x606000001ca0, 1, 0x606000001e20)
+[FUNCTION]      >> textbuffer_to_str(0x606000001ca0)
+[FUNCTION]      >> textbuffer_insert(0x606000001ca0, 6, 0x606000001e80)
+[FUNCTION]      >> textbuffer_to_str(0x606000001ca0)
+[FUNCTION]      >> textbuffer_lines(0x606000001ca0)
+[FUNCTION]      >> textbuffer_bytes(0x606000001ca0)
+[FUNCTION]      >> textbuffer_insert(0x606000001ca0, 8, 0x606000001ee0)
+[FUNCTION]      >> textbuffer_to_str(0x606000001ca0)
+[FUNCTION]      >> textbuffer_insert(0x606000001ca0, 10, 0x606000001f40)
+[FUNCTION]      >> textbuffer_to_str(0x606000001ca0)
+[FUNCTION]      >> textbuffer_lines(0x606000001ca0)
+[FUNCTION]      >> textbuffer_bytes(0x606000001ca0)
+[FUNCTION]      >> textbuffer_drop(0x606000001ca0)
+[STUDENT]       Passed
+[STUDENT]       Test 8: Textbuffer copy function testing
+[ERROR]         textbuffer_copy:722: pos out of range.
+[FUNCTION]      >> textbuffer_new("||||||||")
+[FUNCTION]      >> textbuffer_new("Joshua|LIU|itsme|")
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_copy(0x606000001fa0, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x6060000020c0)
+[FUNCTION]      >> textbuffer_lines(0x6060000020c0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000020c0)
+[FUNCTION]      >> textbuffer_to_str(0x606000001fa0)
+[FUNCTION]      >> textbuffer_lines(0x606000001fa0)
+[FUNCTION]      >> textbuffer_bytes(0x606000001fa0)
+[FUNCTION]      >> textbuffer_copy(0x606000001fa0, 2, 4)
+[FUNCTION]      >> textbuffer_copy(0x6060000020c0, 0, 0)
+[FUNCTION]      >> textbuffer_to_str(0x606000002120)
+[FUNCTION]      >> textbuffer_lines(0x606000002120)
+[FUNCTION]      >> textbuffer_bytes(0x606000002120)
+[FUNCTION]      >> textbuffer_to_str(0x606000001fa0)
+[FUNCTION]      >> textbuffer_lines(0x606000001fa0)
+[FUNCTION]      >> textbuffer_bytes(0x606000001fa0)
+[FUNCTION]      >> textbuffer_to_str(0x606000002180)
+[FUNCTION]      >> textbuffer_lines(0x606000002180)
+[FUNCTION]      >> textbuffer_bytes(0x606000002180)
+[FUNCTION]      >> textbuffer_cut(0x606000002000, 0, 2)
+[FUNCTION]      >> textbuffer_to_str(0x606000002240)
+[FUNCTION]      >> textbuffer_lines(0x606000002240)
+[FUNCTION]      >> textbuffer_bytes(0x606000002240)
+[FUNCTION]      >> textbuffer_to_str(0x606000002000)
+[FUNCTION]      >> textbuffer_lines(0x606000002000)
+[FUNCTION]      >> textbuffer_bytes(0x606000002000)
+[FUNCTION]      >> textbuffer_copy(0x606000002000, 0, 0)
+[ABORT]         (call to abort() ignored)
+[FUNCTION]      >> textbuffer_to_str(0x606000002000)
+[FUNCTION]      >> textbuffer_lines(0x606000002000)
+[FUNCTION]      >> textbuffer_bytes(0x606000002000)
+[FUNCTION]      >> textbuffer_copy(0x606000002060, 0, 1)
+[FUNCTION]      >> textbuffer_to_str(0x606000002060)
+[FUNCTION]      >> textbuffer_lines(0x606000002060)
+[FUNCTION]      >> textbuffer_bytes(0x606000002060)
+[FUNCTION]      >> textbuffer_to_str(0x6060000022a0)
+[FUNCTION]      >> textbuffer_lines(0x6060000022a0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000022a0)
+[FUNCTION]      >> textbuffer_drop(0x606000001fa0)
+[FUNCTION]      >> textbuffer_drop(0x606000002000)
+[FUNCTION]      >> textbuffer_drop(0x606000002060)
+[FUNCTION]      >> textbuffer_drop(0x6060000020c0)
+[FUNCTION]      >> textbuffer_drop(0x606000002120)
+[FUNCTION]      >> textbuffer_drop(0x606000002180)
+[FUNCTION]      >> textbuffer_drop(0x606000002240)
+[FUNCTION]      >> textbuffer_drop((nil))
+[UNDEFINED]     Attempted to call textbuffer_drop on an invalid textbuffer
+[FUNCTION]      >> textbuffer_drop(0x6060000022a0)
+[STUDENT]       passed
+[STUDENT]       Test 9: Textbuffer search function testing
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_new("bluh ||bluh |flat |")
+[FUNCTION]      >> textbuffer_new("Joshua|  |nee*()F|bunghole||bluh ||bluh |flat |for|my|LIU|itsme|")
+[FUNCTION]      >> textbuffer_search(tb, ho, true)
+[FUNCTION]      >> textbuffer_to_str(0x606000002300)
+[FUNCTION]      >> textbuffer_lines(0x606000002300)
+[FUNCTION]      >> textbuffer_bytes(0x606000002300)
+[FUNCTION]      >> textbuffer_search(tb, ho, false)
+[FUNCTION]      >> textbuffer_search(tb, e, false)
+[FUNCTION]      >> textbuffer_search(tb, e, true)
+[FUNCTION]      >> textbuffer_search(tb,  , false)
+[FUNCTION]      >> textbuffer_search(tb,  , true)
+[FUNCTION]      >> textbuffer_search(tb, fdsafa, true)
+[FUNCTION]      >> textbuffer_search(tb, ffa, true)
+[FUNCTION]      >> textbuffer_delete(0x606000002300, 0, 2)
+[FUNCTION]      >> textbuffer_to_str(0x606000002300)
+[FUNCTION]      >> textbuffer_lines(0x606000002300)
+[FUNCTION]      >> textbuffer_bytes(0x606000002300)
+[FUNCTION]      >> textbuffer_search(tb, ffa, true)
+[FUNCTION]      >> textbuffer_search(tb, f, true)
+[FUNCTION]      >> textbuffer_search(tb, flat, false)
+[FUNCTION]      >> textbuffer_search(tb, blu, false)
+[FUNCTION]      >> textbuffer_search(tb, blu, true)
+[FUNCTION]      >> textbuffer_search(tb, (, false)
+[FUNCTION]      >> textbuffer_search(tb, (, false)
+[FUNCTION]      >> textbuffer_search(tb, bluh, true)
+[FUNCTION]      >> textbuffer_search(tb, bluh, false)
+[FUNCTION]      >> textbuffer_drop(0x606000002300)
+[FUNCTION]      >> textbuffer_drop(0x606000002360)
+[FUNCTION]      >> textbuffer_drop(0x6060000023c0)
+[STUDENT]       passed
+[STUDENT]       Test 10: Textbuffer replace function testing
+[FUNCTION]      >> textbuffer_new("  |nee*()F|bunghole|")
+[FUNCTION]      >> textbuffer_new("bluh ||bluh |flat |fea|baba|feoslcbaba|fleabababo|")
+[FUNCTION]      >> textbuffer_replace(0x6060000024e0, (), joshuaLIU)
+[FUNCTION]      >> textbuffer_to_str(0x6060000024e0)
+[FUNCTION]      >> textbuffer_lines(0x6060000024e0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000024e0)
+[FUNCTION]      >> textbuffer_replace(0x6060000024e0, joshuaLIU, ())
+[FUNCTION]      >> textbuffer_to_str(0x6060000024e0)
+[FUNCTION]      >> textbuffer_lines(0x6060000024e0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000024e0)
+[FUNCTION]      >> textbuffer_replace(0x6060000025a0, bluh, )
+[FUNCTION]      >> textbuffer_to_str(0x6060000025a0)
+[ASSERT_FAIL]   failed assertion `strcmp(text," \n\n \nflat \nfea\nbaba\nfeoslcbaba\nfleabababo\n")==0'
+[FUNCTION]      >> textbuffer_lines(0x6060000025a0)
+[FUNCTION]      >> textbuffer_bytes(0x6060000025a0)
+[FUNCTION]      >> textbuffer_drop(0x6060000024e0)
+[FUNCTION]      >> textbuffer_drop(0x6060000025a0)
+[STUDENT]       passed
+[STUDENT]       Test 11: Textbuffer undo/redo function testing
+[INFO]          Finished running student's blackbox tests
+
+
+
+----------------------------------------------------------------
+
+!!specialmark  (Black-Box Coverage)                     5.0/5
+
+
+==> 5036602 <==
+
+
+============================
+== White box test output  ==
+============================
+
+[INFO]          About to call student's whitebox tests
+[STUDENT]       Test 0 : white box testing
+[STUDENT]       >>>white box test 0
+[STUDENT]       passed
+[STUDENT]       >>>white box test 1
+[STUDENT]       passed
+[STUDENT]       >>>white box test 2
+[STUDENT]       passed
+[STUDENT]       >>>white box test 3
+[STUDENT]       passed
+[STUDENT]       >>>white box test 4
+[STUDENT]       passed
+[STUDENT]       >>>white box test 5
+[STUDENT]       passed
+[STUDENT]       >>>white box test 6
+[STUDENT]       passed
+[STUDENT]       >>>white box test 7
+[STUDENT]       passed
+[STUDENT]       >>>white box test 8
+[STUDENT]       passed
+[STUDENT]       >>>white box test 9
+[STUDENT]       passed
+[STUDENT]       >>>white box test 10
+[STUDENT]       passed
+[STUDENT]       >>>white box test 11
+[STUDENT]       passed
+[STUDENT]       >>>white box test 12
+[STUDENT]       passed
+[INFO]          Finished running student's whitebox tests
+
+
+
+----------------------------------------------------------------
+
+!!specialmark  (White-Box Coverage)                     4.5/5
+
+/tmp/bonus00-de1cd1.o: In function `main':
+/web/cs2521/19t0/.repo/assignments/textbuffer/_marking/bonus00.c:39: undefined reference to `textbuffer_diff'
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+!!specialmark  (Bonus 1: diff)                          0/10
+
+
+Test 1: swap, undo & redo
+... swap (0, 2)
+... swap (1, 3)
+... swap (2, 4)
+1 line 03
+1 line 04
+1 line 05
+1 line 02
+1 line 01
+... undo
+... undo
+... undo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+... redo
+... redo
+1 line 03
+1 line 04
+1 line 01
+1 line 02
+1 line 05
+
+Test 2: delete, undo & redo
+... delete (3, 4)
+... delete (0, 1)
+1 line 03
+... undo
+1 line 01
+1 line 02
+1 line 03
+... undo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+
+Test 3: paste/insert, undo & redo
+... paste (3, tb2)
+1 line 01
+1 line 02
+1 line 03
+2 line 01
+2 line 02
+2 line 03
+2 line 04
+1 line 04
+1 line 05
+... undo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+... insert (tb1.lines, tb2)
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+2 line 01
+2 line 02
+2 line 03
+2 line 04
+... redo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+2 line 01
+2 line 02
+2 line 03
+2 line 04
+... undo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+
+Test 4: cut, undo & redo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+... drop cut (3, 4)
+... drop cut (0, 1)
+1 line 03
+... undo
+... undo
+1 line 01
+1 line 02
+1 line 03
+1 line 04
+1 line 05
+... redo
+1 line 01
+1 line 02
+1 line 03
+!!specialmark  (Bonus 2: undo/redo)                     10/10
+
+!!marktab       **  MARKER'S  ASSESSMENT  **
+
+                       Black-Box Testing  (5.0) 5
+
+                       White-Box Testing  (5.0) 5
+
+                       Style  ..  ..  ..  (20.0)        20
+
+!!finalmark     **  FINAL  ASSIGNMENT  MARK:    107.5/120.0
+
+5036602 Liu, Zhengyue                           3731/4 ELECE1
+
+
+
+Marked by z5122536 on Thu Jan 31 14:19:46 2019
